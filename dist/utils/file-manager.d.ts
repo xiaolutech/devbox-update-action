@@ -51,18 +51,19 @@ export declare class FileManager {
     /**
      * Apply updates to the configuration file with backup and validation
      * @param updates - Array of UpdateCandidate objects
+     * @param commitAndPush - Whether to commit and push changes (default: true)
      * @returns Updated DevboxConfig
      */
-    applyUpdates(updates: UpdateCandidate[]): Promise<DevboxConfig>;
+    applyUpdates(updates: UpdateCandidate[], commitAndPush?: boolean): Promise<DevboxConfig>;
     /**
      * Commit changes to Git with a descriptive message
      * @param updates - Array of UpdateCandidate objects that were applied
      */
-    private commitChanges;
+    commitChanges(updates: UpdateCandidate[]): Promise<void>;
     /**
-     * Push changes to remote repository
+     * Push committed changes to remote repository
      */
-    private pushChanges;
+    pushChanges(): Promise<void>;
     /**
      * Generate a descriptive commit message for the updates
      * @param updates - Array of UpdateCandidate objects

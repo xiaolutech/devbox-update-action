@@ -128,22 +128,46 @@ async function run(): Promise<void> {
 		}
 		log.endPhase();
 
-		// Phase 3: Apply updates to files
-		log.setPhase("Phase 3: File Updates");
+		// Phase 3: Create branch for updates (only if no existing PR)
+		let branchName: string | undefined;
+		if (!existingPR) {
+			log.setPhase("Phase 3: Branch Management");
+			log.info("🌿 Creating branch for updates...");
+
+			const branchStartTime = Date.now();
+			branchName = await prManager.getOrCreateUpdateBranch(
+				updateSummary.updates,
+			);
+			log.debug("Branch created/selected", { branchName });
+			log.timing("Branch management", branchStartTime);
+			log.success(`Created/selected branch: ${branchName}`);
+			log.endPhase();
+		}
+
+		// Phase 4: Apply updates to files
+		log.setPhase("Phase 4: File Updates");
 		log.info("📝 Applying package updates...");
 
 		const updateStartTime = Date.now();
 		const _updatedConfig = await fileManager.applyUpdates(
 			updateSummary.updates,
+			false, // Don't commit and push yet, we'll do it after
 		);
+
+		// Now commit and push the changes
+		await fileManager.commitChanges(
+			updateSummary.updates.filter((u) => u.updateAvailable),
+		);
+		await fileManager.pushChanges();
+
 		log.timing("File updates", updateStartTime);
 
 		log.success(`Successfully updated ${updateSummary.totalUpdates} packages`);
 		outputs.changes = true;
 		log.endPhase();
 
-		// Phase 4: Create or update pull request
-		log.setPhase("Phase 4: PR Management");
+		// Phase 5: Create or update pull request
+		log.setPhase("Phase 5: PR Management");
 		log.info("🔄 Managing pull request...");
 
 		const prStartTime = Date.now();
@@ -156,12 +180,12 @@ async function run(): Promise<void> {
 			log.success(`Updated existing PR #${existingPR.number}`);
 			log.endOperation();
 		} else {
-			// Create new PR
+			// Create new PR (branch already created in Phase 3)
 			log.startOperation("Creating new PR");
-			const branchName = await prManager.getOrCreateUpdateBranch(
-				updateSummary.updates,
-			);
-			log.debug("Branch created/selected", { branchName });
+
+			if (!branchName) {
+				throw new Error("Branch name is undefined when creating PR");
+			}
 
 			const prNumber = await prManager.createUpdatePR(
 				updateSummary,

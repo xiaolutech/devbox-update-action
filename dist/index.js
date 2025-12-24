@@ -34719,17 +34719,32 @@ async function run() {
             logger_1.log.info("No existing update PRs found");
         }
         logger_1.log.endPhase();
-        // Phase 3: Apply updates to files
-        logger_1.log.setPhase("Phase 3: File Updates");
+        // Phase 3: Create branch for updates (only if no existing PR)
+        let branchName;
+        if (!existingPR) {
+            logger_1.log.setPhase("Phase 3: Branch Management");
+            logger_1.log.info("🌿 Creating branch for updates...");
+            const branchStartTime = Date.now();
+            branchName = await prManager.getOrCreateUpdateBranch(updateSummary.updates);
+            logger_1.log.debug("Branch created/selected", { branchName });
+            logger_1.log.timing("Branch management", branchStartTime);
+            logger_1.log.success(`Created/selected branch: ${branchName}`);
+            logger_1.log.endPhase();
+        }
+        // Phase 4: Apply updates to files
+        logger_1.log.setPhase("Phase 4: File Updates");
         logger_1.log.info("📝 Applying package updates...");
         const updateStartTime = Date.now();
-        const _updatedConfig = await fileManager.applyUpdates(updateSummary.updates);
+        const _updatedConfig = await fileManager.applyUpdates(updateSummary.updates, false);
+        // Now commit and push the changes
+        await fileManager.commitChanges(updateSummary.updates.filter((u) => u.updateAvailable));
+        await fileManager.pushChanges();
         logger_1.log.timing("File updates", updateStartTime);
         logger_1.log.success(`Successfully updated ${updateSummary.totalUpdates} packages`);
         outputs.changes = true;
         logger_1.log.endPhase();
-        // Phase 4: Create or update pull request
-        logger_1.log.setPhase("Phase 4: PR Management");
+        // Phase 5: Create or update pull request
+        logger_1.log.setPhase("Phase 5: PR Management");
         logger_1.log.info("🔄 Managing pull request...");
         const prStartTime = Date.now();
         if (existingPR) {
@@ -34742,10 +34757,11 @@ async function run() {
             logger_1.log.endOperation();
         }
         else {
-            // Create new PR
+            // Create new PR (branch already created in Phase 3)
             logger_1.log.startOperation("Creating new PR");
-            const branchName = await prManager.getOrCreateUpdateBranch(updateSummary.updates);
-            logger_1.log.debug("Branch created/selected", { branchName });
+            if (!branchName) {
+                throw new Error("Branch name is undefined when creating PR");
+            }
             const prNumber = await prManager.createUpdatePR(updateSummary, branchName);
             outputs.pr_number = prNumber;
             outputs.pr_updated = false;
@@ -35634,9 +35650,10 @@ class FileManager {
     /**
      * Apply updates to the configuration file with backup and validation
      * @param updates - Array of UpdateCandidate objects
+     * @param commitAndPush - Whether to commit and push changes (default: true)
      * @returns Updated DevboxConfig
      */
-    async applyUpdates(updates) {
+    async applyUpdates(updates, commitAndPush = true) {
         // Filter to only include updates that are actually available
         const validUpdates = updates.filter((update) => update.updateAvailable);
         const failedLookups = updates.filter((update) => update.latestVersion === "lookup-failed");
@@ -35656,8 +35673,17 @@ class FileManager {
         }
         console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
         // Check if we have any non-latest updates (that would change devbox.json)
-        const _configUpdates = validUpdates.filter((update) => update.currentVersion !== "latest");
-        const _latestOnlyUpdates = validUpdates.filter((update) => update.currentVersion === "latest");
+        const configUpdates = validUpdates.filter((update) => update.currentVersion !== "latest");
+        const latestOnlyUpdates = validUpdates.filter((update) => update.currentVersion === "latest");
+        // Log update types for debugging
+        if (configUpdates.length > 0) {
+            console.debug(`📋 ${configUpdates.length} config update(s):`, configUpdates
+                .map((u) => `${u.packageName}@${u.latestVersion}`)
+                .join(", "));
+        }
+        if (latestOnlyUpdates.length > 0) {
+            console.debug(`🔒 ${latestOnlyUpdates.length} latest-only update(s):`, latestOnlyUpdates.map((u) => u.packageName).join(", "));
+        }
         // Create backup before making changes
         const backupPath = await this.createBackup();
         try {
@@ -35679,10 +35705,13 @@ class FileManager {
             if (!(await this.validateLockFile())) {
                 throw new types_1.DevboxError("Lock file was not generated correctly after package updates", "INVALID_LOCK_FILE");
             }
-            // Commit changes to Git
-            await this.commitChanges(validUpdates);
-            // Push changes to remote repository
-            await this.pushChanges();
+            // Commit and push changes to Git if requested
+            if (commitAndPush) {
+                // Commit changes to Git
+                await this.commitChanges(validUpdates);
+                // Push changes to remote repository
+                await this.pushChanges();
+            }
             // Log what was updated
             console.log(`Updated ${validUpdates.length} package(s) using devbox add`);
             // Return the updated configuration
@@ -35740,7 +35769,7 @@ class FileManager {
         }
     }
     /**
-     * Push changes to remote repository
+     * Push committed changes to remote repository
      */
     async pushChanges() {
         try {

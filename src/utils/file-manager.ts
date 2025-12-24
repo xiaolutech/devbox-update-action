@@ -272,9 +272,13 @@ export class FileManager {
 	/**
 	 * Apply updates to the configuration file with backup and validation
 	 * @param updates - Array of UpdateCandidate objects
+	 * @param commitAndPush - Whether to commit and push changes (default: true)
 	 * @returns Updated DevboxConfig
 	 */
-	async applyUpdates(updates: UpdateCandidate[]): Promise<DevboxConfig> {
+	async applyUpdates(
+		updates: UpdateCandidate[],
+		commitAndPush = true,
+	): Promise<DevboxConfig> {
 		// Filter to only include updates that are actually available
 		const validUpdates = updates.filter((update) => update.updateAvailable);
 		const failedLookups = updates.filter(
@@ -310,12 +314,28 @@ export class FileManager {
 		console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
 
 		// Check if we have any non-latest updates (that would change devbox.json)
-		const _configUpdates = validUpdates.filter(
+		const configUpdates = validUpdates.filter(
 			(update) => update.currentVersion !== "latest",
 		);
-		const _latestOnlyUpdates = validUpdates.filter(
+		const latestOnlyUpdates = validUpdates.filter(
 			(update) => update.currentVersion === "latest",
 		);
+
+		// Log update types for debugging
+		if (configUpdates.length > 0) {
+			console.debug(
+				`📋 ${configUpdates.length} config update(s):`,
+				configUpdates
+					.map((u) => `${u.packageName}@${u.latestVersion}`)
+					.join(", "),
+			);
+		}
+		if (latestOnlyUpdates.length > 0) {
+			console.debug(
+				`🔒 ${latestOnlyUpdates.length} latest-only update(s):`,
+				latestOnlyUpdates.map((u) => u.packageName).join(", "),
+			);
+		}
 
 		// Create backup before making changes
 		const backupPath = await this.createBackup();
@@ -347,11 +367,14 @@ export class FileManager {
 				);
 			}
 
-			// Commit changes to Git
-			await this.commitChanges(validUpdates);
+			// Commit and push changes to Git if requested
+			if (commitAndPush) {
+				// Commit changes to Git
+				await this.commitChanges(validUpdates);
 
-			// Push changes to remote repository
-			await this.pushChanges();
+				// Push changes to remote repository
+				await this.pushChanges();
+			}
 
 			// Log what was updated
 			console.log(`Updated ${validUpdates.length} package(s) using devbox add`);
@@ -374,7 +397,7 @@ export class FileManager {
 	 * Commit changes to Git with a descriptive message
 	 * @param updates - Array of UpdateCandidate objects that were applied
 	 */
-	private async commitChanges(updates: UpdateCandidate[]): Promise<void> {
+	async commitChanges(updates: UpdateCandidate[]): Promise<void> {
 		try {
 			// Configure git user for the commit (required for GitHub Actions)
 			await execAsync('git config user.name "github-actions[bot]"');
@@ -432,9 +455,9 @@ export class FileManager {
 	}
 
 	/**
-	 * Push changes to remote repository
+	 * Push committed changes to remote repository
 	 */
-	private async pushChanges(): Promise<void> {
+	async pushChanges(): Promise<void> {
 		try {
 			// Push current branch to remote
 			const { stdout: branchOutput } = await execAsync(
