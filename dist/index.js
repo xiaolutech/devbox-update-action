@@ -34687,7 +34687,8 @@ async function run() {
                 packagesUpToDate: updateSummary.updates.length,
             });
             outputs.changes = false;
-            outputs.update_summary = "All packages are up to date - no updates available";
+            outputs.update_summary =
+                "All packages are up to date - no updates available";
             setActionOutputs(outputs);
             // Log final summary
             logger_1.log.actionSummary({
@@ -35643,7 +35644,7 @@ class FileManager {
         // Log information about skipped packages (Requirement 5.1)
         if (failedLookups.length > 0) {
             console.info(`🚫 Skipping ${failedLookups.length} package(s) due to lookup failures:`);
-            failedLookups.forEach(update => {
+            failedLookups.forEach((update) => {
                 console.info(`   - ${update.packageName} (could not be found in registry)`);
             });
         }
@@ -36315,26 +36316,29 @@ class PackageScanner {
         const failedLookups = updates.filter((update) => update.latestVersion === "lookup-failed");
         let summary;
         if (availableUpdates.length > 0) {
-            summary = `Found ${availableUpdates.length} package update(s) available:\n` +
-                availableUpdates
-                    .map((update) => `- ${update.packageName}: ${update.currentVersion} → ${update.latestVersion}`)
-                    .join("\n");
+            summary =
+                `Found ${availableUpdates.length} package update(s) available:\n` +
+                    availableUpdates
+                        .map((update) => `- ${update.packageName}: ${update.currentVersion} → ${update.latestVersion}`)
+                        .join("\n");
         }
         else {
             // Enhanced logging for no updates scenario (Requirement 1.4)
-            summary = upToDatePackages.length > 0
-                ? `All ${upToDatePackages.length} packages are up to date:\n` +
-                    upToDatePackages
-                        .map((update) => `- ${update.packageName}: ${update.currentVersion} (latest)`)
-                        .join("\n")
-                : "No packages found to check for updates.";
+            summary =
+                upToDatePackages.length > 0
+                    ? `All ${upToDatePackages.length} packages are up to date:\n` +
+                        upToDatePackages
+                            .map((update) => `- ${update.packageName}: ${update.currentVersion} (latest)`)
+                            .join("\n")
+                    : "No packages found to check for updates.";
         }
         // Add information about failed lookups (Requirement 5.1)
         if (failedLookups.length > 0) {
-            summary += `\n\nNote: ${failedLookups.length} package(s) could not be found in registry and were skipped:\n` +
-                failedLookups
-                    .map((update) => `- ${update.packageName} (lookup failed)`)
-                    .join("\n");
+            summary +=
+                `\n\nNote: ${failedLookups.length} package(s) could not be found in registry and were skipped:\n` +
+                    failedLookups
+                        .map((update) => `- ${update.packageName} (lookup failed)`)
+                        .join("\n");
         }
         return {
             totalUpdates: availableUpdates.length,
@@ -37701,19 +37705,19 @@ class VersionQueryService {
         const successfulResults = results
             .filter((result) => result.status === "fulfilled")
             .map((result) => result.value);
-        const failedResults = results.filter(result => result.status === "rejected");
+        const failedResults = results.filter((result) => result.status === "rejected");
         // Log statistics about package lookup results
-        const lookupFailures = successfulResults.filter(result => result.latestVersion === "lookup-failed");
+        const lookupFailures = successfulResults.filter((result) => result.latestVersion === "lookup-failed");
         if (failedResults.length > 0) {
             console.warn(`⚠️  ${failedResults.length} packages failed completely during lookup`);
         }
         if (lookupFailures.length > 0) {
             console.warn(`⚠️  ${lookupFailures.length} packages could not be found in registry:`);
-            lookupFailures.forEach(pkg => {
+            lookupFailures.forEach((pkg) => {
                 console.warn(`   - ${pkg.packageName} (skipped)`);
             });
         }
-        const successfulLookups = successfulResults.filter(result => result.latestVersion !== "lookup-failed");
+        const successfulLookups = successfulResults.filter((result) => result.latestVersion !== "lookup-failed");
         console.info(`✅ Successfully checked ${successfulLookups.length}/${packages.length} packages`);
         return successfulResults;
     }
