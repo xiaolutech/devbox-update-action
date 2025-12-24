@@ -3,9 +3,9 @@
  */
 
 export interface ParsedPackage {
-  name: string;
-  version?: string;
-  fullSpec: string;
+	name: string;
+	version?: string;
+	fullSpec: string;
 }
 
 /**
@@ -14,36 +14,36 @@ export interface ParsedPackage {
  * @returns Parsed package information
  */
 export function parsePackageSpec(packageSpec: string): ParsedPackage {
-  const atIndex = packageSpec.lastIndexOf('@');
-  
-  if (atIndex === -1 || atIndex === 0) {
-    // No version specified or @ at the beginning (scoped package without version)
-    return {
-      name: packageSpec,
-      version: undefined,
-      fullSpec: packageSpec
-    };
-  }
-  
-  // Check if this might be a scoped package like @types/node@1.0.0
-  const beforeAt = packageSpec.substring(0, atIndex);
-  const afterAt = packageSpec.substring(atIndex + 1);
-  
-  // If the part before @ contains a slash, it's likely a scoped package
-  if (beforeAt.includes('/')) {
-    return {
-      name: beforeAt,
-      version: afterAt,
-      fullSpec: packageSpec
-    };
-  }
-  
-  // Regular package with version
-  return {
-    name: beforeAt,
-    version: afterAt,
-    fullSpec: packageSpec
-  };
+	const atIndex = packageSpec.lastIndexOf("@");
+
+	if (atIndex === -1 || atIndex === 0) {
+		// No version specified or @ at the beginning (scoped package without version)
+		return {
+			name: packageSpec,
+			version: undefined,
+			fullSpec: packageSpec,
+		};
+	}
+
+	// Check if this might be a scoped package like @types/node@1.0.0
+	const beforeAt = packageSpec.substring(0, atIndex);
+	const afterAt = packageSpec.substring(atIndex + 1);
+
+	// If the part before @ contains a slash, it's likely a scoped package
+	if (beforeAt.includes("/")) {
+		return {
+			name: beforeAt,
+			version: afterAt,
+			fullSpec: packageSpec,
+		};
+	}
+
+	// Regular package with version
+	return {
+		name: beforeAt,
+		version: afterAt,
+		fullSpec: packageSpec,
+	};
 }
 
 /**
@@ -53,10 +53,10 @@ export function parsePackageSpec(packageSpec: string): ParsedPackage {
  * @returns Package specification string
  */
 export function createPackageSpec(name: string, version?: string): string {
-  if (!version) {
-    return name;
-  }
-  return `${name}@${version}`;
+	if (!version) {
+		return name;
+	}
+	return `${name}@${version}`;
 }
 
 /**
@@ -65,5 +65,5 @@ export function createPackageSpec(name: string, version?: string): string {
  * @returns Array of parsed package information
  */
 export function parseAllPackages(packages: string[]): ParsedPackage[] {
-  return packages.map(parsePackageSpec);
+	return packages.map(parsePackageSpec);
 }

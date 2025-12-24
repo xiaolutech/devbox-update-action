@@ -1,9 +1,9 @@
 /**
  * Package scanner component for discovering and scanning Devbox packages
  */
-import type { DevboxConfig, UpdateCandidate, UpdateSummary } from '../types';
-import type { ParsedPackage } from './package-parser';
-import type { VersionQueryService } from './version-query';
+import type { DevboxConfig, UpdateCandidate, UpdateSummary } from "../types";
+import type { ParsedPackage } from "./package-parser";
+import type { VersionQueryService } from "./version-query";
 /**
  * Package scanner class for discovering packages and checking for updates
  */

@@ -37,12 +37,12 @@ export interface ExistingPRInfo {
     branch: string;
     title: string;
     body: string;
-    state: 'open' | 'closed' | 'merged';
+    state: "open" | "closed" | "merged";
     updatedAt: string;
 }
 export interface MergeStrategy {
     preserveExistingUpdates: boolean;
-    conflictResolution: 'fail' | 'overwrite' | 'merge';
+    conflictResolution: "fail" | "overwrite" | "merge";
     updateDescription: boolean;
 }
 export interface DevboxPackageInfo {
@@ -113,4 +113,4 @@ export declare class ValidationError extends DevboxError {
 export declare class GitHubError extends DevboxError {
     constructor(message: string, context?: Record<string, unknown>);
 }
-export type { ParsedPackage } from '../utils/package-parser';
+export type { ParsedPackage } from "../utils/package-parser";

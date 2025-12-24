@@ -2,185 +2,202 @@
  * Tests for the FileManager component
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { FileManager } from '../../src/utils/file-manager';
-import { DevboxConfig, UpdateCandidate, ValidationError, DevboxError } from '../../src/types';
+import * as fs from "fs/promises";
+import * as path from "path";
+import {
+	type DevboxConfig,
+	DevboxError,
+	type UpdateCandidate,
+	ValidationError,
+} from "../../src/types";
+import { FileManager } from "../../src/utils/file-manager";
 
 // Mock fs and child_process modules
-jest.mock('fs/promises');
-jest.mock('child_process');
+jest.mock("fs/promises");
+jest.mock("child_process");
 
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockExec = jest.fn();
 
 // Mock child_process exec
-jest.mock('child_process', () => ({
-  exec: (cmd: string, options: any, callback: any) => {
-    if (typeof options === 'function') {
-      callback = options;
-      options = {};
-    }
-    mockExec(cmd, options, callback);
-  }
+jest.mock("child_process", () => ({
+	exec: (cmd: string, options: any, callback: any) => {
+		if (typeof options === "function") {
+			callback = options;
+			options = {};
+		}
+		mockExec(cmd, options, callback);
+	},
 }));
 
-describe('FileManager', () => {
-  let fileManager: FileManager;
-  let mockConfig: DevboxConfig;
-  let mockUpdates: UpdateCandidate[];
+describe("FileManager", () => {
+	let fileManager: FileManager;
+	let mockConfig: DevboxConfig;
+	let mockUpdates: UpdateCandidate[];
 
-  beforeEach(() => {
-    fileManager = new FileManager('test-devbox.json', 'test-devbox.lock');
-    
-    mockConfig = {
-      packages: ['nodejs@18.0.0', 'python@3.9.0', 'git'],
-      shell: {
-        init_hook: ['echo "Hello"'],
-        scripts: {
-          test: 'npm test'
-        }
-      }
-    };
+	beforeEach(() => {
+		fileManager = new FileManager("test-devbox.json", "test-devbox.lock");
 
-    mockUpdates = [
-      {
-        packageName: 'nodejs',
-        currentVersion: '18.0.0',
-        latestVersion: '18.1.0',
-        updateAvailable: true
-      },
-      {
-        packageName: 'python',
-        currentVersion: '3.9.0',
-        latestVersion: '3.9.0',
-        updateAvailable: false
-      }
-    ];
+		mockConfig = {
+			packages: ["nodejs@18.0.0", "python@3.9.0", "git"],
+			shell: {
+				init_hook: ['echo "Hello"'],
+				scripts: {
+					test: "npm test",
+				},
+			},
+		};
 
-    // Reset mocks
-    jest.clearAllMocks();
-  });
+		mockUpdates = [
+			{
+				packageName: "nodejs",
+				currentVersion: "18.0.0",
+				latestVersion: "18.1.0",
+				updateAvailable: true,
+			},
+			{
+				packageName: "python",
+				currentVersion: "3.9.0",
+				latestVersion: "3.9.0",
+				updateAvailable: false,
+			},
+		];
 
-  describe('readConfig', () => {
-    it('should read and parse valid devbox.json', async () => {
-      const configContent = JSON.stringify(mockConfig);
-      mockFs.readFile.mockResolvedValue(configContent);
+		// Reset mocks
+		jest.clearAllMocks();
+	});
 
-      const result = await fileManager.readConfig();
+	describe("readConfig", () => {
+		it("should read and parse valid devbox.json", async () => {
+			const configContent = JSON.stringify(mockConfig);
+			mockFs.readFile.mockResolvedValue(configContent);
 
-      expect(mockFs.readFile).toHaveBeenCalledWith('test-devbox.json', 'utf-8');
-      expect(result).toEqual(mockConfig);
-    });
+			const result = await fileManager.readConfig();
 
-    it('should throw ValidationError for invalid JSON', async () => {
-      mockFs.readFile.mockResolvedValue('invalid json');
+			expect(mockFs.readFile).toHaveBeenCalledWith("test-devbox.json", "utf-8");
+			expect(result).toEqual(mockConfig);
+		});
 
-      await expect(fileManager.readConfig()).rejects.toThrow(ValidationError);
-    });
+		it("should throw ValidationError for invalid JSON", async () => {
+			mockFs.readFile.mockResolvedValue("invalid json");
 
-    it('should throw DevboxError for missing file', async () => {
-      const error = new Error('File not found') as NodeJS.ErrnoException;
-      error.code = 'ENOENT';
-      mockFs.readFile.mockRejectedValue(error);
+			await expect(fileManager.readConfig()).rejects.toThrow(ValidationError);
+		});
 
-      await expect(fileManager.readConfig()).rejects.toThrow(DevboxError);
-    });
-  });
+		it("should throw DevboxError for missing file", async () => {
+			const error = new Error("File not found") as NodeJS.ErrnoException;
+			error.code = "ENOENT";
+			mockFs.readFile.mockRejectedValue(error);
 
-  describe('writeConfig', () => {
-    it('should write config with proper formatting', async () => {
-      mockFs.writeFile.mockResolvedValue();
+			await expect(fileManager.readConfig()).rejects.toThrow(DevboxError);
+		});
+	});
 
-      await fileManager.writeConfig(mockConfig);
+	describe("writeConfig", () => {
+		it("should write config with proper formatting", async () => {
+			mockFs.writeFile.mockResolvedValue();
 
-      expect(mockFs.writeFile).toHaveBeenCalledWith(
-        'test-devbox.json',
-        JSON.stringify(mockConfig, null, 2) + '\n',
-        'utf-8'
-      );
-    });
+			await fileManager.writeConfig(mockConfig);
 
-    it('should throw ValidationError for invalid config', async () => {
-      const invalidConfig = { packages: 'not-an-array' } as any;
+			expect(mockFs.writeFile).toHaveBeenCalledWith(
+				"test-devbox.json",
+				JSON.stringify(mockConfig, null, 2) + "\n",
+				"utf-8",
+			);
+		});
 
-      await expect(fileManager.writeConfig(invalidConfig)).rejects.toThrow(ValidationError);
-    });
-  });
+		it("should throw ValidationError for invalid config", async () => {
+			const invalidConfig = { packages: "not-an-array" } as any;
 
-  describe('updatePackages', () => {
-    it('should update packages with new versions', () => {
-      const result = fileManager.updatePackages(mockConfig, mockUpdates);
+			await expect(fileManager.writeConfig(invalidConfig)).rejects.toThrow(
+				ValidationError,
+			);
+		});
+	});
 
-      expect(result.packages).toEqual([
-        'nodejs@18.1.0', // Updated
-        'python@3.9.0',  // No update available
-        'git'             // No version specified
-      ]);
-      expect(result.shell).toEqual(mockConfig.shell); // Preserve other config
-    });
+	describe("updatePackages", () => {
+		it("should update packages with new versions", () => {
+			const result = fileManager.updatePackages(mockConfig, mockUpdates);
 
-    it('should preserve original config structure', () => {
-      const result = fileManager.updatePackages(mockConfig, []);
+			expect(result.packages).toEqual([
+				"nodejs@18.1.0", // Updated
+				"python@3.9.0", // No update available
+				"git", // No version specified
+			]);
+			expect(result.shell).toEqual(mockConfig.shell); // Preserve other config
+		});
 
-      expect(result).toEqual(mockConfig);
-      expect(result).not.toBe(mockConfig); // Should be a copy
-    });
+		it("should preserve original config structure", () => {
+			const result = fileManager.updatePackages(mockConfig, []);
 
-    it('should handle packages without versions', () => {
-      const configWithoutVersions = {
-        packages: ['nodejs', 'python', 'git']
-      };
+			expect(result).toEqual(mockConfig);
+			expect(result).not.toBe(mockConfig); // Should be a copy
+		});
 
-      const updates = [
-        {
-          packageName: 'nodejs',
-          currentVersion: '',
-          latestVersion: '18.1.0',
-          updateAvailable: true
-        }
-      ];
+		it("should handle packages without versions", () => {
+			const configWithoutVersions = {
+				packages: ["nodejs", "python", "git"],
+			};
 
-      const result = fileManager.updatePackages(configWithoutVersions, updates);
+			const updates = [
+				{
+					packageName: "nodejs",
+					currentVersion: "",
+					latestVersion: "18.1.0",
+					updateAvailable: true,
+				},
+			];
 
-      expect(result.packages).toEqual([
-        'nodejs@18.1.0', // Updated with version
-        'python',         // No update
-        'git'             // No update
-      ]);
-    });
-  });
+			const result = fileManager.updatePackages(configWithoutVersions, updates);
 
-  describe('createBackup', () => {
-    it('should create backup with timestamp', async () => {
-      mockFs.copyFile.mockResolvedValue();
-      
-      const backupPath = await fileManager.createBackup();
+			expect(result.packages).toEqual([
+				"nodejs@18.1.0", // Updated with version
+				"python", // No update
+				"git", // No update
+			]);
+		});
+	});
 
-      expect(mockFs.copyFile).toHaveBeenCalledWith('test-devbox.json', backupPath);
-      expect(backupPath).toMatch(/test-devbox\.json\.backup\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/);
-    });
+	describe("createBackup", () => {
+		it("should create backup with timestamp", async () => {
+			mockFs.copyFile.mockResolvedValue();
 
-    it('should throw DevboxError on backup failure', async () => {
-      mockFs.copyFile.mockRejectedValue(new Error('Permission denied'));
+			const backupPath = await fileManager.createBackup();
 
-      await expect(fileManager.createBackup()).rejects.toThrow(DevboxError);
-    });
-  });
+			expect(mockFs.copyFile).toHaveBeenCalledWith(
+				"test-devbox.json",
+				backupPath,
+			);
+			expect(backupPath).toMatch(
+				/test-devbox\.json\.backup\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/,
+			);
+		});
 
-  describe('restoreFromBackup', () => {
-    it('should restore config from backup', async () => {
-      mockFs.copyFile.mockResolvedValue();
+		it("should throw DevboxError on backup failure", async () => {
+			mockFs.copyFile.mockRejectedValue(new Error("Permission denied"));
 
-      await fileManager.restoreFromBackup('backup-path');
+			await expect(fileManager.createBackup()).rejects.toThrow(DevboxError);
+		});
+	});
 
-      expect(mockFs.copyFile).toHaveBeenCalledWith('backup-path', 'test-devbox.json');
-    });
+	describe("restoreFromBackup", () => {
+		it("should restore config from backup", async () => {
+			mockFs.copyFile.mockResolvedValue();
 
-    it('should throw DevboxError on restore failure', async () => {
-      mockFs.copyFile.mockRejectedValue(new Error('Backup not found'));
+			await fileManager.restoreFromBackup("backup-path");
 
-      await expect(fileManager.restoreFromBackup('backup-path')).rejects.toThrow(DevboxError);
-    });
-  });
+			expect(mockFs.copyFile).toHaveBeenCalledWith(
+				"backup-path",
+				"test-devbox.json",
+			);
+		});
+
+		it("should throw DevboxError on restore failure", async () => {
+			mockFs.copyFile.mockRejectedValue(new Error("Backup not found"));
+
+			await expect(
+				fileManager.restoreFromBackup("backup-path"),
+			).rejects.toThrow(DevboxError);
+		});
+	});
 });

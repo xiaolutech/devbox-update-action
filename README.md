@@ -45,6 +45,7 @@ jobs:
     branch-prefix: 'devbox-updates'
     pr-title: 'Update Devbox packages'
     max-retries: 3
+    update-latest: true
 ```
 
 ## Inputs
@@ -56,6 +57,7 @@ jobs:
 | `branch-prefix` | Prefix for update branch names | No | `devbox-updates` |
 | `pr-title` | Title template for pull requests | No | `Update Devbox packages` |
 | `max-retries` | Maximum number of retries for network operations | No | `3` |
+| `update-latest` | Whether to refresh lock files for packages marked as "latest" | No | `false` |
 
 ## Outputs
 
@@ -75,6 +77,15 @@ jobs:
 3. **Update Detection**: Compares current versions with latest available versions
 4. **File Updates**: Updates `devbox.json` and regenerates `devbox.lock`
 5. **Pull Request**: Creates or updates a pull request with the changes
+
+### Handling "latest" Packages
+
+By default, packages marked as `latest` (e.g., `nodejs@latest`) are not updated to preserve the user's intent to always use the latest version. However, you can enable lock file refreshing for these packages:
+
+- **`update-latest: false`** (default): Packages like `nodejs@latest` remain unchanged, and their lock files are not refreshed
+- **`update-latest: true`**: The action will regenerate lock files for `latest` packages to ensure they resolve to the actual latest versions, while keeping `devbox.json` unchanged
+
+This is useful when you want to periodically refresh the resolved versions in your lock file without changing your package specifications.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 /**
  * Validation utilities for Devbox configuration and data structures
  */
-import { DevboxConfig } from '../types';
+import { DevboxConfig } from "../types";
 /**
  * Validate a DevboxConfig object
  * @param config - The configuration object to validate

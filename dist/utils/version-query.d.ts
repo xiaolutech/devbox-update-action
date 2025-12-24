@@ -1,8 +1,9 @@
 /**
  * Version query functionality for Devbox Search API integration
  */
-import type { DevboxPackageInfo, UpdateCandidate } from '../types';
-import type { ParsedPackage } from './package-parser';
+import type { DevboxPackageInfo, UpdateCandidate } from "../types";
+import type { ParsedPackage } from "./package-parser";
+import { type ApiRequestConfig } from "./api-config";
 /**
  * Version query service for interacting with Devbox Search API
  */
@@ -43,11 +44,6 @@ export declare class VersionQueryService {
      */
     private makeApiRequest;
     /**
-     * Sleep for the specified number of milliseconds
-     * @param ms - Milliseconds to sleep
-     */
-    private sleep;
-    /**
      * Check if an error is an Axios error
      * @param error - Error to check
      * @returns true if it's an Axios error
@@ -62,13 +58,7 @@ export declare class VersionQueryService {
      * Get current configuration
      * @returns Current API configuration
      */
-    getConfig(): {
-        timeout: number;
-        maxRetries: number;
-        retryDelay: number;
-        retryMultiplier: number;
-        maxRetryDelay: number;
-    };
+    getConfig(): ApiRequestConfig;
 }
 /**
  * Create a new VersionQueryService instance
