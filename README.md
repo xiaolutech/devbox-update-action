@@ -28,8 +28,14 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      metadata: read
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install Devbox
+        uses: jetpack-io/devbox-install-action@v0.11.0
+        with:
+          enable-cache: true
       
       - name: Update Devbox Packages
         uses: xiaolutech/devbox-update-action@v1
@@ -37,9 +43,16 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+> **⚠️ Important**: Make sure to include the `permissions` section in your workflow and enable "Allow GitHub Actions to create and approve pull requests" in your repository settings. See the [Permissions](#permissions) section for detailed setup instructions.
+
 ### Advanced Configuration
 
 ```yaml
+- name: Install Devbox
+  uses: jetpack-io/devbox-install-action@v0.11.0
+  with:
+    enable-cache: true
+
 - name: Update Devbox Packages
   uses: xiaolutech/devbox-update-action@v1
   with:
@@ -94,6 +107,7 @@ This is useful when you want to periodically refresh the resolved versions in yo
 
 - A repository with a `devbox.json` file
 - GitHub Actions enabled
+- Repository configured to allow GitHub Actions to create pull requests (see [Permissions](#permissions))
 - Node.js 22+ (for local development)
 
 ### Permissions
@@ -103,6 +117,8 @@ This action requires the following GitHub permissions:
 - **`contents: write`** - To create and manage branches for pull requests
 - **`pull-requests: write`** - To create and update pull requests
 - **`metadata: read`** - To read repository information (usually granted by default)
+
+#### Workflow Configuration
 
 You can configure these permissions in your workflow file:
 
@@ -117,9 +133,55 @@ jobs:
       # ... your steps
 ```
 
-Alternatively, if your repository uses the default `GITHUB_TOKEN` permissions, these permissions are typically available by default in most repository configurations.
+#### Repository Settings
 
-## Development
+**Important**: If you encounter the error "GitHub Actions is not permitted to create or approve pull requests", you need to enable this feature in your repository settings:
+
+1. Go to your GitHub repository
+2. Click **Settings** tab
+3. Navigate to **Actions** → **General** in the left sidebar
+4. Scroll down to **Workflow permissions** section
+5. Select **Read and write permissions**
+6. ✅ Check **Allow GitHub Actions to create and approve pull requests**
+7. Click **Save**
+
+![GitHub Actions Permissions](https://docs.github.com/assets/cb-45061/images/help/repository/actions-workflow-permissions-repository.png)
+
+> **Note**: This is a repository-level setting that must be enabled by repository administrators. Without this setting, the action will fail with permission errors even if the workflow has the correct permissions configured.
+
+## Troubleshooting
+
+### Common Issues
+
+#### "GitHub Actions is not permitted to create or approve pull requests"
+
+This error occurs when the repository settings don't allow GitHub Actions to create PRs. See the [Permissions](#permissions) section for the complete setup guide.
+
+#### "No commits between main and [branch-name]"
+
+This error indicates that the action created a branch but didn't commit any changes to it. This can happen when:
+
+1. **No actual updates were found**: The packages are already up to date
+2. **File update failed**: The action detected updates but failed to apply them
+3. **Git commit failed**: Files were updated but not committed to the branch
+
+**Solution**: Check the action logs for any errors during the "File Updates" phase. The action should automatically commit changes after updating files.
+
+#### "Devbox is not installed or not available in PATH"
+
+The action requires Devbox to be installed to regenerate lock files. Make sure your workflow includes Devbox installation:
+
+```yaml
+- name: Install Devbox
+  uses: jetpack-io/devbox-install-action@v0.11.0
+  with:
+    enable-cache: true
+
+- name: Update Devbox Packages
+  uses: xiaolutech/devbox-update-action@v1
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+```
 
 This action is built with TypeScript and uses:
 

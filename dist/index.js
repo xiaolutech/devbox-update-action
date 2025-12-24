@@ -35676,6 +35676,8 @@ class FileManager {
             if (!(await this.validateLockFile())) {
                 throw new types_1.DevboxError("Generated lock file is invalid", "INVALID_LOCK_FILE");
             }
+            // Commit the changes to Git
+            await this.commitChanges(validUpdates);
             // Log what was updated
             if (configUpdates.length > 0) {
                 console.log(`Updated ${configUpdates.length} package(s) in devbox.json`);
@@ -35696,6 +35698,61 @@ class FileManager {
             }
             throw error;
         }
+    }
+    /**
+     * Commit changes to Git with a descriptive message
+     * @param updates - Array of UpdateCandidate objects that were applied
+     */
+    async commitChanges(updates) {
+        try {
+            // Configure git user for the commit (required for GitHub Actions)
+            await execAsync('git config user.name "github-actions[bot]"');
+            await execAsync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+            // Add the changed files
+            await execAsync(`git add ${this.configPath} ${this.lockPath}`);
+            // Check if there are actually changes to commit
+            const { stdout: statusOutput } = await execAsync('git status --porcelain');
+            if (!statusOutput.trim()) {
+                console.log("No changes to commit");
+                return;
+            }
+            // Generate commit message
+            const commitMessage = this.generateCommitMessage(updates);
+            // Commit the changes
+            await execAsync(`git commit -m "${commitMessage}"`);
+            console.log(`Committed changes: ${commitMessage}`);
+        }
+        catch (error) {
+            const execError = error;
+            // If there are no changes to commit, that's not an error
+            if (execError.stdout?.includes('nothing to commit') ||
+                execError.stderr?.includes('nothing to commit')) {
+                console.log("No changes to commit");
+                return;
+            }
+            throw new types_1.DevboxError(`Failed to commit changes: ${execError.stderr || execError.stdout || "Unknown error"}`, "GIT_COMMIT_FAILED", {
+                code: execError.code,
+                signal: execError.signal,
+                stdout: execError.stdout,
+                stderr: execError.stderr,
+            });
+        }
+    }
+    /**
+     * Generate a descriptive commit message for the updates
+     * @param updates - Array of UpdateCandidate objects
+     * @returns Formatted commit message
+     */
+    generateCommitMessage(updates) {
+        if (updates.length === 1) {
+            const update = updates[0];
+            return `chore: update ${update.packageName} from ${update.currentVersion} to ${update.latestVersion}`;
+        }
+        if (updates.length <= 3) {
+            const packageNames = updates.map(u => u.packageName).join(', ');
+            return `chore: update ${packageNames}`;
+        }
+        return `chore: update ${updates.length} Devbox packages`;
     }
 }
 exports.FileManager = FileManager;

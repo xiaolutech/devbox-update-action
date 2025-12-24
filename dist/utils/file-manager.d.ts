@@ -54,4 +54,15 @@ export declare class FileManager {
      * @returns Updated DevboxConfig
      */
     applyUpdates(updates: UpdateCandidate[]): Promise<DevboxConfig>;
+    /**
+     * Commit changes to Git with a descriptive message
+     * @param updates - Array of UpdateCandidate objects that were applied
+     */
+    private commitChanges;
+    /**
+     * Generate a descriptive commit message for the updates
+     * @param updates - Array of UpdateCandidate objects
+     * @returns Formatted commit message
+     */
+    private generateCommitMessage;
 }
