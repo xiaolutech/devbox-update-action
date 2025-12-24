@@ -359,7 +359,6 @@ export class ErrorHandler {
 		}
 
 		// Truncate and add indicator
-		const _truncated = serialized.substring(0, this.config.maxContextSize - 50);
 		return {
 			...context,
 			_truncated: true,

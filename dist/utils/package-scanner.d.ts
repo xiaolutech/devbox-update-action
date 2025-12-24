@@ -10,7 +10,7 @@ import type { VersionQueryService } from "./version-query";
 export declare class PackageScanner {
     private configPath;
     private versionQueryService;
-    constructor(configPath?: string);
+    constructor(configPath?: string, updateLatest?: boolean);
     /**
      * Load and parse devbox.json configuration
      * @returns Parsed DevboxConfig object
@@ -88,21 +88,25 @@ export declare class PackageScanner {
 /**
  * Create a new PackageScanner instance
  * @param configPath - Optional path to devbox.json (defaults to './devbox.json')
+ * @param updateLatest - Whether to update latest packages
  * @returns New PackageScanner instance
  */
-export declare function createPackageScanner(configPath?: string): PackageScanner;
+export declare function createPackageScanner(configPath?: string, updateLatest?: boolean): PackageScanner;
 /**
  * Convenience function to scan packages from default devbox.json
+ * @param updateLatest - Whether to update latest packages
  * @returns Array of parsed package information
  */
-export declare function scanDevboxPackages(): Promise<ParsedPackage[]>;
+export declare function scanDevboxPackages(updateLatest?: boolean): Promise<ParsedPackage[]>;
 /**
  * Convenience function to scan for updates from default devbox.json
+ * @param updateLatest - Whether to update latest packages
  * @returns Array of UpdateCandidate objects
  */
-export declare function scanForDevboxUpdates(): Promise<UpdateCandidate[]>;
+export declare function scanForDevboxUpdates(updateLatest?: boolean): Promise<UpdateCandidate[]>;
 /**
  * Convenience function to generate update summary from default devbox.json
+ * @param updateLatest - Whether to update latest packages
  * @returns UpdateSummary object
  */
-export declare function generateDevboxUpdateSummary(): Promise<UpdateSummary>;
+export declare function generateDevboxUpdateSummary(updateLatest?: boolean): Promise<UpdateSummary>;

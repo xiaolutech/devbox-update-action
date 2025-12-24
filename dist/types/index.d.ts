@@ -98,6 +98,7 @@ export interface ActionConfig {
     branchPrefix: string;
     prTitle: string;
     maxRetries: number;
+    updateLatest: boolean;
 }
 export declare class DevboxError extends Error {
     readonly code: string;

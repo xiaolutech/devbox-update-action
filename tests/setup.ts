@@ -14,6 +14,13 @@ jest.mock("@actions/core", () => ({
 	setOutput: jest.fn(),
 	getInput: jest.fn(),
 	debug: jest.fn(),
+	startGroup: jest.fn(),
+	endGroup: jest.fn(),
+	summary: {
+		addHeading: jest.fn(),
+		addRaw: jest.fn(),
+		write: jest.fn(),
+	},
 }));
 
 // Mock GitHub Actions github module for testing

@@ -2,13 +2,15 @@
  * Version query functionality for Devbox Search API integration
  */
 import type { DevboxPackageInfo, UpdateCandidate } from "../types";
-import type { ParsedPackage } from "./package-parser";
 import { type ApiRequestConfig } from "./api-config";
+import type { ParsedPackage } from "./package-parser";
 /**
  * Version query service for interacting with Devbox Search API
  */
 export declare class VersionQueryService {
     private config;
+    private updateLatest;
+    constructor(updateLatest?: boolean);
     /**
      * Query the latest version of a package from Devbox Search API
      * @param packageName - Name of the package to query
@@ -62,18 +64,21 @@ export declare class VersionQueryService {
 }
 /**
  * Create a new VersionQueryService instance
+ * @param updateLatest - Whether to update latest packages
  * @returns New VersionQueryService instance
  */
-export declare function createVersionQueryService(): VersionQueryService;
+export declare function createVersionQueryService(updateLatest?: boolean): VersionQueryService;
 /**
  * Convenience function to get the latest version of a package
  * @param packageName - Name of the package
+ * @param updateLatest - Whether to update latest packages
  * @returns Latest version string
  */
-export declare function getLatestPackageVersion(packageName: string): Promise<string>;
+export declare function getLatestPackageVersion(packageName: string, updateLatest?: boolean): Promise<string>;
 /**
  * Convenience function to check for updates for a single package
  * @param parsedPackage - Parsed package information
+ * @param updateLatest - Whether to update latest packages
  * @returns UpdateCandidate object
  */
-export declare function checkPackageForUpdates(parsedPackage: ParsedPackage): Promise<UpdateCandidate>;
+export declare function checkPackageForUpdates(parsedPackage: ParsedPackage, updateLatest?: boolean): Promise<UpdateCandidate>;

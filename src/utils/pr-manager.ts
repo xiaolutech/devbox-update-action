@@ -343,7 +343,12 @@ export class PullRequestManager {
 	/**
 	 * Categorize updates by semantic version type
 	 */
-	private categorizeUpdates(updates: UpdateCandidate[]) {
+	private categorizeUpdates(updates: UpdateCandidate[]): {
+		major: UpdateCandidate[];
+		minor: UpdateCandidate[];
+		patch: UpdateCandidate[];
+		other: UpdateCandidate[];
+	} {
 		const result = {
 			major: [] as UpdateCandidate[],
 			minor: [] as UpdateCandidate[],
