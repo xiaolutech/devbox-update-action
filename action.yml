@@ -1,0 +1,56 @@
+name: 'Devbox Package Updater'
+description: 'Automatically check and update Devbox packages in devbox.json and devbox.lock files'
+author: 'Devbox Community'
+
+inputs:
+  token:
+    description: 'GitHub token for creating pull requests'
+    required: true
+    default: ${{ github.token }}
+  
+  devbox-version:
+    description: 'Version of Devbox to install'
+    required: false
+    default: 'latest'
+  
+  branch-prefix:
+    description: 'Prefix for update branch names'
+    required: false
+    default: 'devbox-updates'
+  
+  pr-title:
+    description: 'Title template for pull requests'
+    required: false
+    default: 'Update Devbox packages'
+  
+  max-retries:
+    description: 'Maximum number of retries for network operations'
+    required: false
+    default: '3'
+
+outputs:
+  changes:
+    description: 'Whether any package updates were found and applied'
+  
+  update-summary:
+    description: 'Summary of all package updates'
+  
+  pr-number:
+    description: 'Pull request number if created'
+  
+  pr-updated:
+    description: 'Whether an existing PR was updated'
+  
+  existing-pr-found:
+    description: 'Whether an existing update PR was found'
+  
+  error-message:
+    description: 'Error message if the action failed'
+
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'package'
+  color: 'blue'
