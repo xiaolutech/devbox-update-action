@@ -1,0 +1,293 @@
+/**
+ * File manager component for handling devbox.json and devbox.lock operations
+ */
+
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import type { DevboxConfig, UpdateCandidate } from '../types';
+import { ValidationError, DevboxError } from '../types';
+import { parsePackageSpec, createPackageSpec } from './package-parser';
+import { validateDevboxConfig } from './validation';
+
+const execAsync = promisify(exec);
+
+/**
+ * File manager class for handling devbox configuration and lock file operations
+ */
+export class FileManager {
+  private configPath: string;
+  private lockPath: string;
+
+  constructor(configPath: string = 'devbox.json', lockPath: string = 'devbox.lock') {
+    this.configPath = configPath;
+    this.lockPath = lockPath;
+  }
+
+  /**
+   * Read and parse the devbox.json configuration file
+   * @returns Parsed DevboxConfig object
+   */
+  async readConfig(): Promise<DevboxConfig> {
+    try {
+      const configContent = await fs.readFile(this.configPath, 'utf-8');
+      const config = JSON.parse(configContent) as DevboxConfig;
+      
+      // Validate the configuration
+      try {
+        validateDevboxConfig(config);
+      } catch (validationError) {
+        throw new ValidationError(`Invalid devbox.json configuration structure: ${validationError instanceof Error ? validationError.message : 'Unknown validation error'}`);
+      }
+      
+      return config;
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+      if (error instanceof SyntaxError) {
+        throw new ValidationError(`Invalid JSON in ${this.configPath}: ${error.message}`);
+      }
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new DevboxError(`Configuration file not found: ${this.configPath}`, 'FILE_NOT_FOUND');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Write the devbox.json configuration file with proper formatting
+   * @param config - DevboxConfig object to write
+   */
+  async writeConfig(config: DevboxConfig): Promise<void> {
+    try {
+      // Validate before writing
+      try {
+        validateDevboxConfig(config);
+      } catch (validationError) {
+        throw new ValidationError(`Cannot write invalid devbox.json configuration: ${validationError instanceof Error ? validationError.message : 'Unknown validation error'}`);
+      }
+
+      // Format JSON with proper indentation to preserve structure
+      const configContent = JSON.stringify(config, null, 2);
+      await fs.writeFile(this.configPath, configContent + '\n', 'utf-8');
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+      throw new DevboxError(
+        `Failed to write configuration file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'FILE_WRITE_ERROR',
+        { configPath: this.configPath }
+      );
+    }
+  }
+
+  /**
+   * Update packages in the devbox.json configuration
+   * @param config - Current DevboxConfig
+   * @param updates - Array of UpdateCandidate objects
+   * @returns Updated DevboxConfig
+   */
+  updatePackages(config: DevboxConfig, updates: UpdateCandidate[]): DevboxConfig {
+    // Create a deep copy of the configuration to avoid mutations
+    const updatedConfig: DevboxConfig = JSON.parse(JSON.stringify(config));
+    
+    // Create a map of package names to their new versions for quick lookup
+    const updateMap = new Map<string, string>();
+    updates.forEach(update => {
+      if (update.updateAvailable) {
+        updateMap.set(update.packageName, update.latestVersion);
+      }
+    });
+
+    // Update the packages array
+    updatedConfig.packages = config.packages.map(packageSpec => {
+      const parsed = parsePackageSpec(packageSpec);
+      const newVersion = updateMap.get(parsed.name);
+      
+      if (newVersion) {
+        return createPackageSpec(parsed.name, newVersion);
+      }
+      
+      return packageSpec; // No update available, keep original
+    });
+
+    return updatedConfig;
+  }
+
+  /**
+   * Create a backup of the current configuration file
+   * @returns Path to the backup file
+   */
+  async createBackup(): Promise<string> {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = `${this.configPath}.backup.${timestamp}`;
+    
+    try {
+      await fs.copyFile(this.configPath, backupPath);
+      return backupPath;
+    } catch (error) {
+      throw new DevboxError(
+        `Failed to create backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'BACKUP_ERROR',
+        { configPath: this.configPath, backupPath }
+      );
+    }
+  }
+
+  /**
+   * Restore configuration from a backup file
+   * @param backupPath - Path to the backup file
+   */
+  async restoreFromBackup(backupPath: string): Promise<void> {
+    try {
+      await fs.copyFile(backupPath, this.configPath);
+    } catch (error) {
+      throw new DevboxError(
+        `Failed to restore from backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'RESTORE_ERROR',
+        { configPath: this.configPath, backupPath }
+      );
+    }
+  }
+
+  /**
+   * Regenerate the devbox.lock file by running devbox commands
+   */
+  async regenerateLock(): Promise<void> {
+    try {
+      // First, ensure devbox is available
+      await this.ensureDevboxInstalled();
+      
+      // Remove existing lock file to force regeneration
+      try {
+        await fs.unlink(this.lockPath);
+      } catch (_error) {
+        // Ignore if lock file doesn't exist
+        if ((_error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.warn(`Warning: Could not remove existing lock file: ${_error}`);
+        }
+      }
+      
+      // Run devbox install to regenerate lock file
+      const { stdout, stderr } = await execAsync('devbox install', {
+        timeout: 300000, // 5 minute timeout
+        cwd: path.dirname(this.configPath)
+      });
+      
+      if (stderr && !stderr.includes('warning')) {
+        console.warn('Devbox install warnings:', stderr);
+      }
+      
+      // Verify that lock file was created
+      try {
+        await fs.access(this.lockPath);
+      } catch (_error) {
+        throw new DevboxError(
+          'Lock file was not generated after devbox install',
+          'LOCK_GENERATION_FAILED',
+          { lockPath: this.lockPath, stdout, stderr }
+        );
+      }
+      
+    } catch (error) {
+      if (error instanceof DevboxError) {
+        throw error;
+      }
+      
+      const execError = error as { code?: number; signal?: string; stdout?: string; stderr?: string };
+      throw new DevboxError(
+        `Failed to regenerate lock file: ${execError.stderr || execError.stdout || 'Unknown error'}`,
+        'DEVBOX_COMMAND_FAILED',
+        {
+          code: execError.code,
+          signal: execError.signal,
+          stdout: execError.stdout,
+          stderr: execError.stderr
+        }
+      );
+    }
+  }
+
+  /**
+   * Ensure devbox is installed and available
+   */
+  private async ensureDevboxInstalled(): Promise<void> {
+    try {
+      await execAsync('devbox version', { timeout: 10000 });
+    } catch (error) {
+      throw new DevboxError(
+        'Devbox is not installed or not available in PATH. Please install devbox first.',
+        'DEVBOX_NOT_FOUND',
+        { error: error instanceof Error ? error.message : 'Unknown error' }
+      );
+    }
+  }
+
+  /**
+   * Validate that the lock file is consistent with the configuration
+   */
+  async validateLockFile(): Promise<boolean> {
+    try {
+      // Check if lock file exists
+      await fs.access(this.lockPath);
+      
+      // Read lock file to ensure it's valid JSON
+      const lockContent = await fs.readFile(this.lockPath, 'utf-8');
+      JSON.parse(lockContent); // Will throw if invalid JSON
+      
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  /**
+   * Apply updates to the configuration file with backup and validation
+   * @param updates - Array of UpdateCandidate objects
+   * @returns Updated DevboxConfig
+   */
+  async applyUpdates(updates: UpdateCandidate[]): Promise<DevboxConfig> {
+    // Filter to only include updates that are actually available
+    const validUpdates = updates.filter(update => update.updateAvailable);
+    
+    if (validUpdates.length === 0) {
+      throw new DevboxError('No valid updates to apply', 'NO_UPDATES');
+    }
+
+    // Create backup before making changes
+    const backupPath = await this.createBackup();
+    
+    try {
+      // Read current configuration
+      const currentConfig = await this.readConfig();
+      
+      // Apply updates
+      const updatedConfig = this.updatePackages(currentConfig, validUpdates);
+      
+      // Write updated configuration
+      await this.writeConfig(updatedConfig);
+      
+      // Regenerate lock file
+      await this.regenerateLock();
+      
+      // Validate that lock file was generated correctly
+      if (!(await this.validateLockFile())) {
+        throw new DevboxError('Generated lock file is invalid', 'INVALID_LOCK_FILE');
+      }
+      
+      return updatedConfig;
+    } catch (error) {
+      // Restore from backup on failure
+      try {
+        await this.restoreFromBackup(backupPath);
+      } catch (restoreError) {
+        // Log restore error but throw original error
+        console.error('Failed to restore from backup:', restoreError);
+      }
+      throw error;
+    }
+  }
+}
