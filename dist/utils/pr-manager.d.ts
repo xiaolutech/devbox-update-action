@@ -93,8 +93,14 @@ export declare class PullRequestManager {
      */
     createBranch(branchName: string, baseBranch?: string): Promise<void>;
     /**
+     * Switch to a specific branch in the local repository
+     * Ensures that subsequent operations happen on the correct branch
+     */
+    private switchToBranch;
+    /**
      * Get or create a branch for updates
      * Returns existing branch if it exists, otherwise creates a new one
+     * Also ensures the working directory is on the correct branch
      */
     getOrCreateUpdateBranch(updates?: UpdateCandidate[]): Promise<string>;
     /**

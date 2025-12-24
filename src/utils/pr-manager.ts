@@ -547,8 +547,38 @@ export class PullRequestManager {
 	}
 
 	/**
+	 * Switch to a specific branch in the local repository
+	 * Ensures that subsequent operations happen on the correct branch
+	 */
+	private async switchToBranch(branchName: string): Promise<void> {
+		try {
+			const { exec } = require("node:child_process");
+			const { promisify } = require("node:util");
+			const execAsync = promisify(exec);
+
+			core.info(`Switching to branch: ${branchName}`);
+
+			// Fetch the latest from remote to ensure we have the branch
+			await execAsync("git fetch origin", { timeout: 30000 });
+
+			// Switch to the branch
+			await execAsync(`git checkout ${branchName}`, { timeout: 30000 });
+
+			core.info(`Successfully switched to branch: ${branchName}`);
+		} catch (error) {
+			const githubError = new GitHubError(
+				`Failed to switch to branch ${branchName}: ${error instanceof Error ? error.message : "Unknown error"}`,
+				{ error, branchName },
+			);
+			core.error(githubError.message);
+			throw githubError;
+		}
+	}
+
+	/**
 	 * Get or create a branch for updates
 	 * Returns existing branch if it exists, otherwise creates a new one
+	 * Also ensures the working directory is on the correct branch
 	 */
 	async getOrCreateUpdateBranch(updates?: UpdateCandidate[]): Promise<string> {
 		// Generate branch name based on updates
@@ -556,12 +586,16 @@ export class PullRequestManager {
 
 		if (await this.branchExists(branchName)) {
 			core.info(`Using existing branch: ${branchName}`);
+			// Switch to the existing branch
+			await this.switchToBranch(branchName);
 			return branchName;
 		}
 
 		// If branch doesn't exist, create it
 		try {
 			await this.createBranch(branchName);
+			// Switch to the newly created branch
+			await this.switchToBranch(branchName);
 			return branchName;
 		} catch (error) {
 			// If creation fails (e.g., due to race condition), try a unique name
@@ -573,6 +607,8 @@ export class PullRequestManager {
 				updates && updates.length === 1 ? updates[0].packageName : undefined;
 			branchName = this.generateUniqueBranchName(packageName);
 			await this.createBranch(branchName);
+			// Switch to the newly created branch
+			await this.switchToBranch(branchName);
 			return branchName;
 		}
 	}

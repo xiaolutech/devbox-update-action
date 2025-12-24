@@ -35711,7 +35711,7 @@ class FileManager {
             // Add the changed files
             await execAsync(`git add ${this.configPath} ${this.lockPath}`);
             // Check if there are actually changes to commit
-            const { stdout: statusOutput } = await execAsync('git status --porcelain');
+            const { stdout: statusOutput } = await execAsync("git status --porcelain");
             if (!statusOutput.trim()) {
                 console.log("No changes to commit");
                 return;
@@ -35725,8 +35725,8 @@ class FileManager {
         catch (error) {
             const execError = error;
             // If there are no changes to commit, that's not an error
-            if (execError.stdout?.includes('nothing to commit') ||
-                execError.stderr?.includes('nothing to commit')) {
+            if (execError.stdout?.includes("nothing to commit") ||
+                execError.stderr?.includes("nothing to commit")) {
                 console.log("No changes to commit");
                 return;
             }
@@ -35749,7 +35749,7 @@ class FileManager {
             return `chore: update ${update.packageName} from ${update.currentVersion} to ${update.latestVersion}`;
         }
         if (updates.length <= 3) {
-            const packageNames = updates.map(u => u.packageName).join(', ');
+            const packageNames = updates.map((u) => u.packageName).join(", ");
             return `chore: update ${packageNames}`;
         }
         return `chore: update ${updates.length} Devbox packages`;
@@ -36926,19 +36926,46 @@ class PullRequestManager {
         }
     }
     /**
+     * Switch to a specific branch in the local repository
+     * Ensures that subsequent operations happen on the correct branch
+     */
+    async switchToBranch(branchName) {
+        try {
+            const { exec } = __nccwpck_require__(1421);
+            const { promisify } = __nccwpck_require__(7975);
+            const execAsync = promisify(exec);
+            core.info(`Switching to branch: ${branchName}`);
+            // Fetch the latest from remote to ensure we have the branch
+            await execAsync("git fetch origin", { timeout: 30000 });
+            // Switch to the branch
+            await execAsync(`git checkout ${branchName}`, { timeout: 30000 });
+            core.info(`Successfully switched to branch: ${branchName}`);
+        }
+        catch (error) {
+            const githubError = new types_1.GitHubError(`Failed to switch to branch ${branchName}: ${error instanceof Error ? error.message : "Unknown error"}`, { error, branchName });
+            core.error(githubError.message);
+            throw githubError;
+        }
+    }
+    /**
      * Get or create a branch for updates
      * Returns existing branch if it exists, otherwise creates a new one
+     * Also ensures the working directory is on the correct branch
      */
     async getOrCreateUpdateBranch(updates) {
         // Generate branch name based on updates
         let branchName = this.generateBranchName(updates);
         if (await this.branchExists(branchName)) {
             core.info(`Using existing branch: ${branchName}`);
+            // Switch to the existing branch
+            await this.switchToBranch(branchName);
             return branchName;
         }
         // If branch doesn't exist, create it
         try {
             await this.createBranch(branchName);
+            // Switch to the newly created branch
+            await this.switchToBranch(branchName);
             return branchName;
         }
         catch (error) {
@@ -36947,6 +36974,8 @@ class PullRequestManager {
             const packageName = updates && updates.length === 1 ? updates[0].packageName : undefined;
             branchName = this.generateUniqueBranchName(packageName);
             await this.createBranch(branchName);
+            // Switch to the newly created branch
+            await this.switchToBranch(branchName);
             return branchName;
         }
     }
