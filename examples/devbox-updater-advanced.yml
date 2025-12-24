@@ -1,0 +1,161 @@
+# Example workflow for Advanced Devbox Package Updates
+# Copy this file to .github/workflows/ in your repository to use it
+# 
+# This is an advanced example with matrix strategy and multiple configurations
+
+name: Advanced Devbox Package Updates
+
+on:
+  # Multiple schedule options
+  schedule:
+    # Daily at 2 AM UTC for critical projects
+    - cron: '0 2 * * *'
+    # Weekly on Friday at 6 PM UTC for regular updates
+    - cron: '0 18 * * 5'
+  
+  # Manual trigger with advanced options
+  workflow_dispatch:
+    inputs:
+      config_path:
+        description: 'Path to devbox.json file'
+        required: false
+        default: 'devbox.json'
+        type: string
+      
+      branch_prefix:
+        description: 'Custom branch prefix'
+        required: false
+        default: 'devbox-updates'
+        type: string
+      
+      pr_title:
+        description: 'Custom PR title'
+        required: false
+        default: 'chore: Update Devbox packages'
+        type: string
+      
+      max_retries:
+        description: 'Maximum retry attempts'
+        required: false
+        default: '3'
+        type: string
+      
+      dry_run:
+        description: 'Run without making changes'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  update-devbox-packages:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        config: 
+          - path: 'devbox.json'
+            name: 'main'
+          - path: 'development/devbox.json'
+            name: 'development'
+          - path: 'production/devbox.json'
+            name: 'production'
+      fail-fast: false
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Check if config exists
+        id: check-config
+        run: |
+          if [ -f "${{ matrix.config.path }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Config file ${{ matrix.config.path }} does not exist, skipping..."
+          fi
+      
+      - name: Update Devbox packages for ${{ matrix.config.name }}
+        if: steps.check-config.outputs.exists == 'true'
+        uses: ./
+        id: update
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          devbox-version: 'latest'
+          config-path: ${{ github.event.inputs.config_path || matrix.config.path }}
+          branch-prefix: ${{ github.event.inputs.branch_prefix || format('devbox-updates-{0}', matrix.config.name) }}
+          pr-title: ${{ github.event.inputs.pr_title || format('chore: Update Devbox packages for {0}', matrix.config.name) }}
+          pr-body-template: |
+            ## Devbox Package Updates for ${{ matrix.config.name }}
+            
+            This PR contains automatic updates for Devbox packages in `${{ matrix.config.path }}`.
+            
+            ### Updated Packages
+            {updates}
+            
+            ### Summary
+            {summary}
+            
+            **Environment:** ${{ matrix.config.name }}
+            **Config Path:** ${{ matrix.config.path }}
+            
+            Please review the changes and test your development environment before merging.
+          max-retries: ${{ github.event.inputs.max_retries || '3' }}
+          retry-delay: '2'
+          update-latest: 'false'
+          dry-run: ${{ github.event.inputs.dry_run || 'false' }}
+      
+      - name: Create summary for ${{ matrix.config.name }}
+        if: steps.check-config.outputs.exists == 'true'
+        run: |
+          echo "## Results for ${{ matrix.config.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Config Path:** ${{ matrix.config.path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes:** ${{ steps.update.outputs.changes }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Summary:** ${{ steps.update.outputs.update-summary }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.update.outputs.pr-number }}" != "" ]; then
+            echo "- **PR Created:** #${{ steps.update.outputs.pr-number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR URL:** ${{ steps.update.outputs.pr-url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.update.outputs.error-message }}" != "" ]; then
+            echo "- **Error:** ${{ steps.update.outputs.error-message }}" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devbox-update-logs-${{ matrix.config.name }}
+          path: |
+            devbox.json
+            devbox.lock
+            *.log
+          retention-days: 7
+
+  notify-completion:
+    needs: update-devbox-packages
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify completion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = ${{ toJson(needs.update-devbox-packages.result) }};
+            const conclusion = jobs === 'success' ? 'success' : 'failure';
+            
+            console.log(`Devbox package update workflow completed with status: ${conclusion}`);
+            
+            // You can add additional notification logic here
+            // For example, sending to Slack, Discord, or email

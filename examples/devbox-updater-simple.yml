@@ -1,0 +1,31 @@
+# Example workflow for Devbox Package Updates
+# Copy this file to .github/workflows/ in your repository to use it
+# 
+# This is a basic example with minimal configuration
+
+name: Simple Devbox Updates
+
+# Simple example for basic usage
+on:
+  # Run every Sunday at midnight UTC
+  schedule:
+    - cron: '0 0 * * 0'
+  
+  # Allow manual execution
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update Devbox packages
+        uses: ./
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

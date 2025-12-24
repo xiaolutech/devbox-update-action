@@ -1,0 +1,99 @@
+# Example workflow for Devbox Package Updates
+# Copy this file to .github/workflows/ in your repository to use it
+# 
+# This is a standard example with error handling and notifications
+
+name: Update Devbox Packages
+
+on:
+  # Scheduled execution - runs every Monday at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * 1'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode without making changes'
+        required: false
+        default: false
+        type: boolean
+      
+      skip_packages:
+        description: 'Comma-separated list of packages to skip'
+        required: false
+        default: ''
+        type: string
+      
+      update_latest:
+        description: 'Update packages marked as "latest"'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  update-devbox-packages:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Update Devbox packages
+        uses: ./
+        id: update
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          devbox-version: 'latest'
+          branch-prefix: 'devbox-updates'
+          pr-title: 'chore: Update Devbox packages'
+          max-retries: 3
+          retry-delay: 2
+          update-latest: ${{ github.event.inputs.update_latest || 'false' }}
+          skip-packages: ${{ github.event.inputs.skip_packages || '' }}
+          dry-run: ${{ github.event.inputs.dry_run || 'false' }}
+      
+      - name: Output results
+        if: always()
+        run: |
+          echo "Changes detected: ${{ steps.update.outputs.changes }}"
+          echo "Update summary: ${{ steps.update.outputs.update-summary }}"
+          if [ "${{ steps.update.outputs.pr-number }}" != "" ]; then
+            echo "Pull request created/updated: #${{ steps.update.outputs.pr-number }}"
+            echo "PR URL: ${{ steps.update.outputs.pr-url }}"
+          fi
+          if [ "${{ steps.update.outputs.error-message }}" != "" ]; then
+            echo "Error occurred: ${{ steps.update.outputs.error-message }}"
+          fi
+      
+      - name: Comment on failure
+        if: failure() && steps.update.outputs.error-message != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errorMessage = `${{ steps.update.outputs.error-message }}`;
+            const body = `## Devbox Package Update Failed
+            
+            The automatic Devbox package update failed with the following error:
+            
+            \`\`\`
+            ${errorMessage}
+            \`\`\`
+            
+            Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.`;
+            
+            // Create an issue for the failure
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Devbox Package Update Failed',
+              body: body,
+              labels: ['devbox', 'automation', 'bug']
+            });

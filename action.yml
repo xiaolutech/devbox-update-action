@@ -4,7 +4,7 @@ author: 'Devbox Community'
 
 inputs:
   token:
-    description: 'GitHub token for creating pull requests'
+    description: 'GitHub token for creating pull requests and accessing repository content'
     required: true
     default: ${{ github.token }}
   
@@ -23,13 +23,49 @@ inputs:
     required: false
     default: 'Update Devbox packages'
   
+  pr-body-template:
+    description: 'Template for pull request body content'
+    required: false
+    default: |
+      ## Devbox Package Updates
+      
+      This PR contains automatic updates for Devbox packages.
+      
+      ### Updated Packages
+      {updates}
+      
+      ### Summary
+      {summary}
+      
+      Please review the changes and test your development environment before merging.
+  
   max-retries:
     description: 'Maximum number of retries for network operations'
     required: false
     default: '3'
   
+  retry-delay:
+    description: 'Initial delay in seconds for retry operations'
+    required: false
+    default: '1'
+  
   update-latest:
     description: 'Whether to refresh lock files for packages marked as "latest"'
+    required: false
+    default: 'false'
+  
+  config-path:
+    description: 'Path to devbox.json configuration file'
+    required: false
+    default: 'devbox.json'
+  
+  skip-packages:
+    description: 'Comma-separated list of packages to skip during updates'
+    required: false
+    default: ''
+  
+  dry-run:
+    description: 'Run in dry-run mode without making actual changes'
     required: false
     default: 'false'
 
@@ -43,17 +79,26 @@ outputs:
   pr-number:
     description: 'Pull request number if created'
   
+  pr-url:
+    description: 'URL of the created or updated pull request'
+  
   pr-updated:
     description: 'Whether an existing PR was updated'
   
   existing-pr-found:
     description: 'Whether an existing update PR was found'
   
+  updated-packages:
+    description: 'JSON array of updated package information'
+  
+  skipped-packages:
+    description: 'JSON array of packages that were skipped due to errors'
+  
   error-message:
     description: 'Error message if the action failed'
 
 runs:
-  using: 'node24'
+  using: 'node20'
   main: 'dist/index.js'
 
 branding:
