@@ -10,6 +10,8 @@ export declare const DEVBOX_API: {
     readonly TIMEOUT: 30000;
     readonly MAX_RETRIES: 3;
     readonly RETRY_DELAY: 1000;
+    readonly RETRY_MULTIPLIER: 2;
+    readonly MAX_RETRY_DELAY: 10000;
 };
 export declare const FILES: {
     readonly DEVBOX_CONFIG: "devbox.json";

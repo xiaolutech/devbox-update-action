@@ -11,7 +11,9 @@ export const DEVBOX_API = {
   },
   TIMEOUT: 30000, // 30 seconds
   MAX_RETRIES: 3,
-  RETRY_DELAY: 1000 // 1 second base delay
+  RETRY_DELAY: 1000, // 1 second base delay
+  RETRY_MULTIPLIER: 2, // Exponential backoff multiplier
+  MAX_RETRY_DELAY: 10000 // Maximum retry delay (10 seconds)
 } as const;
 
 // File paths and names
