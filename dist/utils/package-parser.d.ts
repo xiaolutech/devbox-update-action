@@ -25,4 +25,3 @@ export declare function createPackageSpec(name: string, version?: string): strin
  * @returns Array of parsed package information
  */
 export declare function parseAllPackages(packages: string[]): ParsedPackage[];
-//# sourceMappingURL=package-parser.d.ts.map

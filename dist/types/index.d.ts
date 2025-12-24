@@ -114,4 +114,3 @@ export declare class GitHubError extends DevboxError {
     constructor(message: string, context?: Record<string, unknown>);
 }
 export type { ParsedPackage } from '../utils/package-parser';
-//# sourceMappingURL=index.d.ts.map

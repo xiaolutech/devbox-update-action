@@ -47,4 +47,3 @@ export declare function isRetryableError(error: unknown): boolean;
  * @throws Error if configuration is invalid
  */
 export declare function validateApiConfig(): void;
-//# sourceMappingURL=api-config.d.ts.map

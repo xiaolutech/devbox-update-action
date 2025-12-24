@@ -67,4 +67,3 @@ export declare function sortVersions(versions: string[]): string[];
  */
 export declare function sortVersionsDescending(versions: string[]): string[];
 export {};
-//# sourceMappingURL=version-compare.d.ts.map

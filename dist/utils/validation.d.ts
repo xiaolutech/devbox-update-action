@@ -33,4 +33,3 @@ export declare function validateVersion(version: string): void;
  * @throws ValidationError if the configuration cannot be safely serialized
  */
 export declare function validateForSerialization(config: DevboxConfig): void;
-//# sourceMappingURL=validation.d.ts.map
