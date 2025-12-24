@@ -4,11 +4,7 @@
  */
 
 import { NetworkError } from "../types";
-import {
-	ApiRequestConfig,
-	calculateRetryDelay,
-	getDefaultApiConfig,
-} from "./api-config";
+import { getDefaultApiConfig } from "./api-config";
 import { handleError, shouldRetryError } from "./error-handler";
 
 /**

@@ -3,13 +3,9 @@
  */
 
 import {
-	ActionOutputs,
 	type DevboxConfig,
 	DevboxError,
-	DevboxPackageInfo,
-	ExistingPRInfo,
 	GitHubError,
-	MergeStrategy,
 	NetworkError,
 	type UpdateCandidate,
 	type UpdateSummary,

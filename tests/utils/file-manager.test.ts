@@ -2,8 +2,7 @@
  * Tests for the FileManager component
  */
 
-import * as fs from "fs/promises";
-import * as path from "path";
+import * as fs from "node:fs/promises";
 import {
 	type DevboxConfig,
 	DevboxError,
@@ -101,7 +100,7 @@ describe("FileManager", () => {
 
 			expect(mockFs.writeFile).toHaveBeenCalledWith(
 				"test-devbox.json",
-				JSON.stringify(mockConfig, null, 2) + "\n",
+				`${JSON.stringify(mockConfig, null, 2)}\n`,
 				"utf-8",
 			);
 		});

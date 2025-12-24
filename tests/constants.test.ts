@@ -2,13 +2,7 @@
  * Tests for constants and configuration values
  */
 
-import {
-	DEFAULTS,
-	DEVBOX_API,
-	FILES,
-	GITHUB,
-	PATTERNS,
-} from "../src/constants";
+import { DEVBOX_API, FILES, GITHUB, PATTERNS } from "../src/constants";
 
 describe("Constants", () => {
 	describe("DEVBOX_API", () => {

@@ -2,12 +2,7 @@
  * Tests for error handler component
  */
 
-import {
-	DevboxError,
-	GitHubError,
-	NetworkError,
-	ValidationError,
-} from "../../src/types";
+import { GitHubError, NetworkError, ValidationError } from "../../src/types";
 import {
 	ErrorCategory,
 	ErrorHandler,

@@ -2,8 +2,8 @@
  * Package scanner component for discovering and scanning Devbox packages
  */
 
-import * as fs from "fs/promises";
-import * as path from "path";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { FILES } from "../constants";
 import type { DevboxConfig, UpdateCandidate, UpdateSummary } from "../types";
 import { ValidationError } from "../types";

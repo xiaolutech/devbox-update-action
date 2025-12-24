@@ -2,10 +2,10 @@
  * File manager component for handling devbox.json and devbox.lock operations
  */
 
-import { exec } from "child_process";
-import * as fs from "fs/promises";
-import * as path from "path";
-import { promisify } from "util";
+import { exec } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { promisify } from "node:util";
 import type { DevboxConfig, UpdateCandidate } from "../types";
 import { DevboxError, ValidationError } from "../types";
 import { createPackageSpec, parsePackageSpec } from "./package-parser";
@@ -83,7 +83,7 @@ export class FileManager {
 
 			// Format JSON with proper indentation to preserve structure
 			const configContent = JSON.stringify(config, null, 2);
-			await fs.writeFile(this.configPath, configContent + "\n", "utf-8");
+			await fs.writeFile(this.configPath, `${configContent}\n`, "utf-8");
 		} catch (error) {
 			if (error instanceof ValidationError) {
 				throw error;
