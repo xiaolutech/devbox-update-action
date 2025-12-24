@@ -97,6 +97,11 @@ outputs:
   error-message:
     description: 'Error message if the action failed'
 
+permissions:
+  contents: write
+  pull-requests: write
+  metadata: read
+
 runs:
   using: 'node20'
   main: 'dist/index.js'

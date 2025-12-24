@@ -25,6 +25,9 @@ on:
 jobs:
   update-packages:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       
@@ -92,7 +95,29 @@ This is useful when you want to periodically refresh the resolved versions in yo
 - A repository with a `devbox.json` file
 - GitHub Actions enabled
 - Node.js 22+ (for local development)
-- Appropriate permissions for the GitHub token (contents: write, pull-requests: write)
+
+### Permissions
+
+This action requires the following GitHub permissions:
+
+- **`contents: write`** - To create and manage branches for pull requests
+- **`pull-requests: write`** - To create and update pull requests
+- **`metadata: read`** - To read repository information (usually granted by default)
+
+You can configure these permissions in your workflow file:
+
+```yaml
+jobs:
+  update-packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # ... your steps
+```
+
+Alternatively, if your repository uses the default `GITHUB_TOKEN` permissions, these permissions are typically available by default in most repository configurations.
 
 ## Development
 
