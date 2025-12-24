@@ -37829,9 +37829,9 @@ class VersionQueryService {
         try {
             const latestVersion = await this.getLatestVersion(parsedPackage.name);
             const currentVersion = parsedPackage.version || "unknown";
-            // Skip 'latest' version packages for now
+            // Skip 'latest' version packages unless updateLatest is enabled
             // Latest version detection is complex and requires actual devbox install to determine
-            if (parsedPackage.version === "latest") {
+            if (parsedPackage.version === "latest" && !this.updateLatest) {
                 console.info(`ℹ️  Skipping package '${parsedPackage.name}' - 'latest' version detection not supported yet`);
                 return {
                     packageName: parsedPackage.name,
