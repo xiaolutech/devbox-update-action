@@ -2,7 +2,7 @@
 	"name": "devbox-updater-action",
 	"version": "1.0.0",
 	"description": "GitHub Action to automatically update Devbox packages",
-	"type": "module",
+
 	"main": "dist/index.js",
 	"scripts": {
 		"build": "ncc build src/index.ts -o dist --license licenses.txt",

@@ -576,6 +576,32 @@ export class PullRequestManager {
 	}
 
 	/**
+	 * Push branch to remote repository
+	 * Required for creating pull requests
+	 */
+	private async pushBranch(branchName: string): Promise<void> {
+		try {
+			const { exec } = require("node:child_process");
+			const { promisify } = require("node:util");
+			const execAsync = promisify(exec);
+
+			core.info(`Pushing branch to remote: ${branchName}`);
+
+			// Push the branch to remote with upstream tracking
+			await execAsync(`git push -u origin ${branchName}`, { timeout: 60000 });
+
+			core.info(`Successfully pushed branch: ${branchName}`);
+		} catch (error) {
+			const githubError = new GitHubError(
+				`Failed to push branch ${branchName}: ${error instanceof Error ? error.message : "Unknown error"}`,
+				{ error, branchName },
+			);
+			core.error(githubError.message);
+			throw githubError;
+		}
+	}
+
+	/**
 	 * Get or create a branch for updates
 	 * Returns existing branch if it exists, otherwise creates a new one
 	 * Also ensures the working directory is on the correct branch
@@ -596,6 +622,8 @@ export class PullRequestManager {
 			await this.createBranch(branchName);
 			// Switch to the newly created branch
 			await this.switchToBranch(branchName);
+			// Push the new branch to remote
+			await this.pushBranch(branchName);
 			return branchName;
 		} catch (error) {
 			// If creation fails (e.g., due to race condition), try a unique name
@@ -609,6 +637,8 @@ export class PullRequestManager {
 			await this.createBranch(branchName);
 			// Switch to the newly created branch
 			await this.switchToBranch(branchName);
+			// Push the new branch to remote
+			await this.pushBranch(branchName);
 			return branchName;
 		}
 	}

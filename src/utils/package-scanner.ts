@@ -179,6 +179,19 @@ export class PackageScanner {
 		const failedLookups = updates.filter(
 			(update) => update.latestVersion === "lookup-failed",
 		);
+		const skippedLatestPackages = updates.filter(
+			(update) => update.currentVersion === "latest",
+		);
+
+		// Log skipped latest packages for clarity
+		if (skippedLatestPackages.length > 0) {
+			console.info(
+				`ℹ️  Skipped ${skippedLatestPackages.length} package(s) with 'latest' version (detection not supported yet):`,
+			);
+			skippedLatestPackages.forEach((update) => {
+				console.info(`   - ${update.packageName}`);
+			});
+		}
 
 		let summary: string;
 		if (availableUpdates.length > 0) {

@@ -98,6 +98,11 @@ export declare class PullRequestManager {
      */
     private switchToBranch;
     /**
+     * Push branch to remote repository
+     * Required for creating pull requests
+     */
+    private pushBranch;
+    /**
      * Get or create a branch for updates
      * Returns existing branch if it exists, otherwise creates a new one
      * Also ensures the working directory is on the correct branch

@@ -60,6 +60,10 @@ export declare class FileManager {
      */
     private commitChanges;
     /**
+     * Push changes to remote repository
+     */
+    private pushChanges;
+    /**
      * Generate a descriptive commit message for the updates
      * @param updates - Array of UpdateCandidate objects
      * @returns Formatted commit message

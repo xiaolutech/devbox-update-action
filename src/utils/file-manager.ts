@@ -310,10 +310,10 @@ export class FileManager {
 		console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
 
 		// Check if we have any non-latest updates (that would change devbox.json)
-		const configUpdates = validUpdates.filter(
+		const _configUpdates = validUpdates.filter(
 			(update) => update.currentVersion !== "latest",
 		);
-		const latestOnlyUpdates = validUpdates.filter(
+		const _latestOnlyUpdates = validUpdates.filter(
 			(update) => update.currentVersion === "latest",
 		);
 
@@ -321,44 +321,43 @@ export class FileManager {
 		const backupPath = await this.createBackup();
 
 		try {
-			// Read current configuration
-			const currentConfig = await this.readConfig();
-			let updatedConfig = currentConfig;
+			// Use devbox add to update packages to specific versions
+			// This is the proper way to update devbox packages
+			for (const update of validUpdates) {
+				const packageSpec = `${update.packageName}@${update.latestVersion}`;
+				console.info(`Running: devbox add ${packageSpec}`);
 
-			// Apply updates to devbox.json only if there are non-latest updates
-			if (configUpdates.length > 0) {
-				updatedConfig = this.updatePackages(currentConfig, configUpdates);
-				await this.writeConfig(updatedConfig);
+				const { stderr } = await execAsync(`devbox add ${packageSpec}`, {
+					timeout: 300000, // 5 minute timeout
+					cwd: path.dirname(this.configPath),
+				});
+
+				if (stderr && !stderr.includes("warning")) {
+					console.warn("Devbox add warnings:", stderr);
+				}
+
+				console.log(`Updated ${update.packageName} to ${update.latestVersion}`);
 			}
-
-			// Always regenerate lock file if there are any updates (including latest-only)
-			// This ensures that 'latest' packages get their lock file refreshed
-			await this.regenerateLock();
 
 			// Validate that lock file was generated correctly
 			if (!(await this.validateLockFile())) {
 				throw new DevboxError(
-					"Generated lock file is invalid",
+					"Lock file was not generated correctly after package updates",
 					"INVALID_LOCK_FILE",
 				);
 			}
 
-			// Commit the changes to Git
+			// Commit changes to Git
 			await this.commitChanges(validUpdates);
 
-			// Log what was updated
-			if (configUpdates.length > 0) {
-				console.log(
-					`Updated ${configUpdates.length} package(s) in devbox.json`,
-				);
-			}
-			if (latestOnlyUpdates.length > 0) {
-				console.log(
-					`Refreshed lock file for ${latestOnlyUpdates.length} 'latest' package(s)`,
-				);
-			}
+			// Push changes to remote repository
+			await this.pushChanges();
 
-			return updatedConfig;
+			// Log what was updated
+			console.log(`Updated ${validUpdates.length} package(s) using devbox add`);
+
+			// Return the updated configuration
+			return await this.readConfig();
 		} catch (error) {
 			// Restore from backup on failure
 			try {
@@ -422,6 +421,44 @@ export class FileManager {
 			throw new DevboxError(
 				`Failed to commit changes: ${execError.stderr || execError.stdout || "Unknown error"}`,
 				"GIT_COMMIT_FAILED",
+				{
+					code: execError.code,
+					signal: execError.signal,
+					stdout: execError.stdout,
+					stderr: execError.stderr,
+				},
+			);
+		}
+	}
+
+	/**
+	 * Push changes to remote repository
+	 */
+	private async pushChanges(): Promise<void> {
+		try {
+			// Push current branch to remote
+			const { stdout: branchOutput } = await execAsync(
+				"git branch --show-current",
+			);
+			const currentBranch = branchOutput.trim();
+
+			if (currentBranch) {
+				await execAsync(`git push -u origin ${currentBranch}`, {
+					timeout: 60000,
+				});
+				console.log(`Pushed changes to remote branch: ${currentBranch}`);
+			}
+		} catch (error) {
+			const execError = error as {
+				code?: number;
+				signal?: string;
+				stdout?: string;
+				stderr?: string;
+			};
+
+			throw new DevboxError(
+				`Failed to push changes: ${execError.stderr || execError.stdout || "Unknown error"}`,
+				"GIT_PUSH_FAILED",
 				{
 					code: execError.code,
 					signal: execError.signal,

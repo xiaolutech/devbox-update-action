@@ -35656,36 +35656,37 @@ class FileManager {
         }
         console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
         // Check if we have any non-latest updates (that would change devbox.json)
-        const configUpdates = validUpdates.filter((update) => update.currentVersion !== "latest");
-        const latestOnlyUpdates = validUpdates.filter((update) => update.currentVersion === "latest");
+        const _configUpdates = validUpdates.filter((update) => update.currentVersion !== "latest");
+        const _latestOnlyUpdates = validUpdates.filter((update) => update.currentVersion === "latest");
         // Create backup before making changes
         const backupPath = await this.createBackup();
         try {
-            // Read current configuration
-            const currentConfig = await this.readConfig();
-            let updatedConfig = currentConfig;
-            // Apply updates to devbox.json only if there are non-latest updates
-            if (configUpdates.length > 0) {
-                updatedConfig = this.updatePackages(currentConfig, configUpdates);
-                await this.writeConfig(updatedConfig);
+            // Use devbox add to update packages to specific versions
+            // This is the proper way to update devbox packages
+            for (const update of validUpdates) {
+                const packageSpec = `${update.packageName}@${update.latestVersion}`;
+                console.info(`Running: devbox add ${packageSpec}`);
+                const { stderr } = await execAsync(`devbox add ${packageSpec}`, {
+                    timeout: 300000, // 5 minute timeout
+                    cwd: path.dirname(this.configPath),
+                });
+                if (stderr && !stderr.includes("warning")) {
+                    console.warn("Devbox add warnings:", stderr);
+                }
+                console.log(`Updated ${update.packageName} to ${update.latestVersion}`);
             }
-            // Always regenerate lock file if there are any updates (including latest-only)
-            // This ensures that 'latest' packages get their lock file refreshed
-            await this.regenerateLock();
             // Validate that lock file was generated correctly
             if (!(await this.validateLockFile())) {
-                throw new types_1.DevboxError("Generated lock file is invalid", "INVALID_LOCK_FILE");
+                throw new types_1.DevboxError("Lock file was not generated correctly after package updates", "INVALID_LOCK_FILE");
             }
-            // Commit the changes to Git
+            // Commit changes to Git
             await this.commitChanges(validUpdates);
+            // Push changes to remote repository
+            await this.pushChanges();
             // Log what was updated
-            if (configUpdates.length > 0) {
-                console.log(`Updated ${configUpdates.length} package(s) in devbox.json`);
-            }
-            if (latestOnlyUpdates.length > 0) {
-                console.log(`Refreshed lock file for ${latestOnlyUpdates.length} 'latest' package(s)`);
-            }
-            return updatedConfig;
+            console.log(`Updated ${validUpdates.length} package(s) using devbox add`);
+            // Return the updated configuration
+            return await this.readConfig();
         }
         catch (error) {
             // Restore from backup on failure
@@ -35731,6 +35732,31 @@ class FileManager {
                 return;
             }
             throw new types_1.DevboxError(`Failed to commit changes: ${execError.stderr || execError.stdout || "Unknown error"}`, "GIT_COMMIT_FAILED", {
+                code: execError.code,
+                signal: execError.signal,
+                stdout: execError.stdout,
+                stderr: execError.stderr,
+            });
+        }
+    }
+    /**
+     * Push changes to remote repository
+     */
+    async pushChanges() {
+        try {
+            // Push current branch to remote
+            const { stdout: branchOutput } = await execAsync("git branch --show-current");
+            const currentBranch = branchOutput.trim();
+            if (currentBranch) {
+                await execAsync(`git push -u origin ${currentBranch}`, {
+                    timeout: 60000,
+                });
+                console.log(`Pushed changes to remote branch: ${currentBranch}`);
+            }
+        }
+        catch (error) {
+            const execError = error;
+            throw new types_1.DevboxError(`Failed to push changes: ${execError.stderr || execError.stdout || "Unknown error"}`, "GIT_PUSH_FAILED", {
                 code: execError.code,
                 signal: execError.signal,
                 stdout: execError.stdout,
@@ -36371,6 +36397,14 @@ class PackageScanner {
         const availableUpdates = updates.filter((update) => update.updateAvailable);
         const upToDatePackages = updates.filter((update) => !update.updateAvailable && update.latestVersion !== "lookup-failed");
         const failedLookups = updates.filter((update) => update.latestVersion === "lookup-failed");
+        const skippedLatestPackages = updates.filter((update) => update.currentVersion === "latest");
+        // Log skipped latest packages for clarity
+        if (skippedLatestPackages.length > 0) {
+            console.info(`ℹ️  Skipped ${skippedLatestPackages.length} package(s) with 'latest' version (detection not supported yet):`);
+            skippedLatestPackages.forEach((update) => {
+                console.info(`   - ${update.packageName}`);
+            });
+        }
         let summary;
         if (availableUpdates.length > 0) {
             summary =
@@ -36948,6 +36982,26 @@ class PullRequestManager {
         }
     }
     /**
+     * Push branch to remote repository
+     * Required for creating pull requests
+     */
+    async pushBranch(branchName) {
+        try {
+            const { exec } = __nccwpck_require__(1421);
+            const { promisify } = __nccwpck_require__(7975);
+            const execAsync = promisify(exec);
+            core.info(`Pushing branch to remote: ${branchName}`);
+            // Push the branch to remote with upstream tracking
+            await execAsync(`git push -u origin ${branchName}`, { timeout: 60000 });
+            core.info(`Successfully pushed branch: ${branchName}`);
+        }
+        catch (error) {
+            const githubError = new types_1.GitHubError(`Failed to push branch ${branchName}: ${error instanceof Error ? error.message : "Unknown error"}`, { error, branchName });
+            core.error(githubError.message);
+            throw githubError;
+        }
+    }
+    /**
      * Get or create a branch for updates
      * Returns existing branch if it exists, otherwise creates a new one
      * Also ensures the working directory is on the correct branch
@@ -36966,6 +37020,8 @@ class PullRequestManager {
             await this.createBranch(branchName);
             // Switch to the newly created branch
             await this.switchToBranch(branchName);
+            // Push the new branch to remote
+            await this.pushBranch(branchName);
             return branchName;
         }
         catch (error) {
@@ -36976,6 +37032,8 @@ class PullRequestManager {
             await this.createBranch(branchName);
             // Switch to the newly created branch
             await this.switchToBranch(branchName);
+            // Push the new branch to remote
+            await this.pushBranch(branchName);
             return branchName;
         }
     }
@@ -37742,14 +37800,15 @@ class VersionQueryService {
         try {
             const latestVersion = await this.getLatestVersion(parsedPackage.name);
             const currentVersion = parsedPackage.version || "unknown";
-            // Special handling for 'latest' version
+            // Skip 'latest' version packages for now
+            // Latest version detection is complex and requires actual devbox install to determine
             if (parsedPackage.version === "latest") {
-                // For 'latest' packages, we only consider them as needing update if updateLatest is enabled
+                console.info(`ℹ️  Skipping package '${parsedPackage.name}' - 'latest' version detection not supported yet`);
                 return {
                     packageName: parsedPackage.name,
                     currentVersion: "latest",
                     latestVersion,
-                    updateAvailable: this.updateLatest, // Controlled by configuration
+                    updateAvailable: false, // Skip latest version packages
                 };
             }
             // If no current version is specified, consider it as needing update

@@ -25,7 +25,6 @@ import { compareVersions } from "./version-compare";
  */
 export class VersionQueryService {
 	private config = getDefaultApiConfig();
-	private updateLatest: boolean;
 
 	constructor(updateLatest: boolean = false) {
 		this.updateLatest = updateLatest;
@@ -100,14 +99,17 @@ export class VersionQueryService {
 			const latestVersion = await this.getLatestVersion(parsedPackage.name);
 			const currentVersion = parsedPackage.version || "unknown";
 
-			// Special handling for 'latest' version
+			// Skip 'latest' version packages for now
+			// Latest version detection is complex and requires actual devbox install to determine
 			if (parsedPackage.version === "latest") {
-				// For 'latest' packages, we only consider them as needing update if updateLatest is enabled
+				console.info(
+					`ℹ️  Skipping package '${parsedPackage.name}' - 'latest' version detection not supported yet`,
+				);
 				return {
 					packageName: parsedPackage.name,
 					currentVersion: "latest",
 					latestVersion,
-					updateAvailable: this.updateLatest, // Controlled by configuration
+					updateAvailable: false, // Skip latest version packages
 				};
 			}
 
