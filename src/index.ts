@@ -73,8 +73,22 @@ async function run(): Promise<void> {
 
 		// Check if any updates are available
 		if (!updateSummary.hasChanges) {
-			log.success("All packages are up to date. No action needed.");
+			// Requirement 1.4: Log that all packages are up to date
+			log.success("✅ All packages are up to date. No action needed.");
+			log.info(
+				"📦 Package status: All packages are current with latest versions",
+			);
+
+			// Requirement 3.4: Skip pull request creation and log status
+			log.info("🚫 Skipping pull request creation - no updates available");
+			log.debug("No updates found", {
+				totalPackagesScanned: updateSummary.updates.length,
+				packagesUpToDate: updateSummary.updates.length,
+			});
+
 			outputs.changes = false;
+			outputs.update_summary =
+				"All packages are up to date - no updates available";
 			setActionOutputs(outputs);
 
 			// Log final summary
@@ -86,6 +100,9 @@ async function run(): Promise<void> {
 			});
 
 			log.timing("Total execution time", startTime);
+			log.success(
+				"🎉 Devbox updater completed successfully - no updates needed!",
+			);
 			return;
 		}
 

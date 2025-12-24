@@ -122,13 +122,21 @@ export class VersionQueryService {
 				latestVersion,
 				updateAvailable,
 			};
-		} catch {
-			// If we can't get version info, assume no update is available
+		} catch (error) {
+			// Requirement 5.1: Skip missing packages and continue processing others
+			console.warn(
+				`⚠️  Package lookup failed for '${parsedPackage.name}': ${error instanceof Error ? error.message : String(error)}`,
+			);
+			console.info(
+				`🔄 Skipping package '${parsedPackage.name}' and continuing with other packages`,
+			);
+
+			// Return a candidate indicating the package couldn't be checked
 			return {
 				packageName: parsedPackage.name,
 				currentVersion: parsedPackage.version || "unknown",
-				latestVersion: "unknown",
-				updateAvailable: false,
+				latestVersion: "lookup-failed",
+				updateAvailable: false, // Don't attempt to update packages we can't query
 			};
 		}
 	}
@@ -141,17 +149,57 @@ export class VersionQueryService {
 	async checkMultiplePackagesForUpdates(
 		packages: ParsedPackage[],
 	): Promise<UpdateCandidate[]> {
-		const updatePromises = packages.map((pkg) => this.checkForUpdates(pkg));
+		console.info(`🔍 Checking ${packages.length} packages for updates...`);
+
+		const updatePromises = packages.map(async (pkg, index) => {
+			console.debug(
+				`Checking package ${index + 1}/${packages.length}: ${pkg.name}`,
+			);
+			return this.checkForUpdates(pkg);
+		});
 
 		// Use Promise.allSettled to handle individual package failures gracefully
 		const results = await Promise.allSettled(updatePromises);
 
-		return results
+		const successfulResults = results
 			.filter(
 				(result): result is PromiseFulfilledResult<UpdateCandidate> =>
 					result.status === "fulfilled",
 			)
 			.map((result) => result.value);
+
+		const failedResults = results.filter(
+			(result) => result.status === "rejected",
+		);
+
+		// Log statistics about package lookup results
+		const lookupFailures = successfulResults.filter(
+			(result) => result.latestVersion === "lookup-failed",
+		);
+
+		if (failedResults.length > 0) {
+			console.warn(
+				`⚠️  ${failedResults.length} packages failed completely during lookup`,
+			);
+		}
+
+		if (lookupFailures.length > 0) {
+			console.warn(
+				`⚠️  ${lookupFailures.length} packages could not be found in registry:`,
+			);
+			lookupFailures.forEach((pkg) => {
+				console.warn(`   - ${pkg.packageName} (skipped)`);
+			});
+		}
+
+		const successfulLookups = successfulResults.filter(
+			(result) => result.latestVersion !== "lookup-failed",
+		);
+		console.info(
+			`✅ Successfully checked ${successfulLookups.length}/${packages.length} packages`,
+		);
+
+		return successfulResults;
 	}
 
 	/**

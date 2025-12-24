@@ -172,17 +172,46 @@ export class PackageScanner {
 	async generateUpdateSummary(): Promise<UpdateSummary> {
 		const updates = await this.scanForUpdates();
 		const availableUpdates = updates.filter((update) => update.updateAvailable);
+		const upToDatePackages = updates.filter(
+			(update) =>
+				!update.updateAvailable && update.latestVersion !== "lookup-failed",
+		);
+		const failedLookups = updates.filter(
+			(update) => update.latestVersion === "lookup-failed",
+		);
 
-		const summary =
-			availableUpdates.length > 0
-				? `Found ${availableUpdates.length} package update(s) available:\n` +
-					availableUpdates
-						.map(
-							(update) =>
-								`- ${update.packageName}: ${update.currentVersion} → ${update.latestVersion}`,
-						)
-						.join("\n")
-				: "All packages are up to date.";
+		let summary: string;
+		if (availableUpdates.length > 0) {
+			summary =
+				`Found ${availableUpdates.length} package update(s) available:\n` +
+				availableUpdates
+					.map(
+						(update) =>
+							`- ${update.packageName}: ${update.currentVersion} → ${update.latestVersion}`,
+					)
+					.join("\n");
+		} else {
+			// Enhanced logging for no updates scenario (Requirement 1.4)
+			summary =
+				upToDatePackages.length > 0
+					? `All ${upToDatePackages.length} packages are up to date:\n` +
+						upToDatePackages
+							.map(
+								(update) =>
+									`- ${update.packageName}: ${update.currentVersion} (latest)`,
+							)
+							.join("\n")
+					: "No packages found to check for updates.";
+		}
+
+		// Add information about failed lookups (Requirement 5.1)
+		if (failedLookups.length > 0) {
+			summary +=
+				`\n\nNote: ${failedLookups.length} package(s) could not be found in registry and were skipped:\n` +
+				failedLookups
+					.map((update) => `- ${update.packageName} (lookup failed)`)
+					.join("\n");
+		}
 
 		return {
 			totalUpdates: availableUpdates.length,

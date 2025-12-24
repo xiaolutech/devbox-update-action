@@ -34622,19 +34622,19 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = run;
 const core = __importStar(__nccwpck_require__(7484));
-const package_scanner_1 = __nccwpck_require__(5102);
-const file_manager_1 = __nccwpck_require__(9441);
-const pr_manager_1 = __nccwpck_require__(7025);
 const error_handler_1 = __nccwpck_require__(1694);
-const retry_mechanism_1 = __nccwpck_require__(631);
+const file_manager_1 = __nccwpck_require__(9441);
 const logger_1 = __nccwpck_require__(7893);
+const package_scanner_1 = __nccwpck_require__(5102);
+const pr_manager_1 = __nccwpck_require__(7025);
+const retry_mechanism_1 = __nccwpck_require__(631);
 /**
  * Main action execution function
  * Orchestrates the complete package update workflow
  */
 async function run() {
     const startTime = Date.now();
-    let outputs = {
+    const outputs = {
         changes: false,
         update_summary: "No updates processed",
         pr_updated: false,
@@ -34657,7 +34657,7 @@ async function run() {
             devboxVersion: config.devboxVersion,
             branchPrefix: config.branchPrefix,
             maxRetries: config.maxRetries.toString(),
-            updateLatest: config.updateLatest.toString()
+            updateLatest: config.updateLatest.toString(),
         });
         // Initialize components
         logger_1.log.startOperation("Initializing components");
@@ -34677,8 +34677,17 @@ async function run() {
         logger_1.log.endPhase();
         // Check if any updates are available
         if (!updateSummary.hasChanges) {
-            logger_1.log.success("All packages are up to date. No action needed.");
+            // Requirement 1.4: Log that all packages are up to date
+            logger_1.log.success("✅ All packages are up to date. No action needed.");
+            logger_1.log.info("📦 Package status: All packages are current with latest versions");
+            // Requirement 3.4: Skip pull request creation and log status
+            logger_1.log.info("🚫 Skipping pull request creation - no updates available");
+            logger_1.log.debug("No updates found", {
+                totalPackagesScanned: updateSummary.updates.length,
+                packagesUpToDate: updateSummary.updates.length,
+            });
             outputs.changes = false;
+            outputs.update_summary = "All packages are up to date - no updates available";
             setActionOutputs(outputs);
             // Log final summary
             logger_1.log.actionSummary({
@@ -34688,6 +34697,7 @@ async function run() {
                 hasErrors: false,
             });
             logger_1.log.timing("Total execution time", startTime);
+            logger_1.log.success("🎉 Devbox updater completed successfully - no updates needed!");
             return;
         }
         // Phase 2: Check for existing PRs
@@ -34712,7 +34722,7 @@ async function run() {
         logger_1.log.setPhase("Phase 3: File Updates");
         logger_1.log.info("📝 Applying package updates...");
         const updateStartTime = Date.now();
-        const updatedConfig = await fileManager.applyUpdates(updateSummary.updates);
+        const _updatedConfig = await fileManager.applyUpdates(updateSummary.updates);
         logger_1.log.timing("File updates", updateStartTime);
         logger_1.log.success(`Successfully updated ${updateSummary.totalUpdates} packages`);
         outputs.changes = true;
@@ -34805,7 +34815,7 @@ function setActionOutputs(outputs) {
         pr_number: outputs.pr_number?.toString(),
         pr_updated: outputs.pr_updated,
         existing_pr_found: outputs.existing_pr_found,
-        error_message: outputs.error_message
+        error_message: outputs.error_message,
     });
     logger_1.log.endOperation();
 }
@@ -35628,9 +35638,22 @@ class FileManager {
     async applyUpdates(updates) {
         // Filter to only include updates that are actually available
         const validUpdates = updates.filter((update) => update.updateAvailable);
+        const failedLookups = updates.filter((update) => update.latestVersion === "lookup-failed");
+        const skippedUpdates = updates.filter((update) => !update.updateAvailable && update.latestVersion !== "lookup-failed");
+        // Log information about skipped packages (Requirement 5.1)
+        if (failedLookups.length > 0) {
+            console.info(`🚫 Skipping ${failedLookups.length} package(s) due to lookup failures:`);
+            failedLookups.forEach(update => {
+                console.info(`   - ${update.packageName} (could not be found in registry)`);
+            });
+        }
+        if (skippedUpdates.length > 0) {
+            console.debug(`ℹ️  Skipping ${skippedUpdates.length} package(s) that are already up to date`);
+        }
         if (validUpdates.length === 0) {
             throw new types_1.DevboxError("No valid updates to apply", "NO_UPDATES");
         }
+        console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
         // Check if we have any non-latest updates (that would change devbox.json)
         const configUpdates = validUpdates.filter((update) => update.currentVersion !== "latest");
         const latestOnlyUpdates = validUpdates.filter((update) => update.currentVersion === "latest");
@@ -35911,7 +35934,9 @@ class ActionLogger {
                 break;
         }
         // Log context separately if it exists and is enabled
-        if (this.config.enableContext && context && Object.keys(context).length > 0) {
+        if (this.config.enableContext &&
+            context &&
+            Object.keys(context).length > 0) {
             const contextStr = JSON.stringify(context, null, 2);
             core.debug(`Context: ${contextStr}`);
         }
@@ -35922,7 +35947,12 @@ class ActionLogger {
      * @returns true if the level should be logged
      */
     shouldLog(level) {
-        const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR];
+        const levels = [
+            LogLevel.DEBUG,
+            LogLevel.INFO,
+            LogLevel.WARN,
+            LogLevel.ERROR,
+        ];
         const currentLevelIndex = levels.indexOf(this.config.logLevel);
         const messageLevelIndex = levels.indexOf(level);
         return messageLevelIndex >= currentLevelIndex;
@@ -35994,7 +36024,7 @@ class ActionLogger {
         if (milliseconds < 1000) {
             return `${milliseconds}ms`;
         }
-        const seconds = Math.round(milliseconds / 1000 * 100) / 100;
+        const seconds = Math.round((milliseconds / 1000) * 100) / 100;
         if (seconds < 60) {
             return `${seconds}s`;
         }
@@ -36281,12 +36311,31 @@ class PackageScanner {
     async generateUpdateSummary() {
         const updates = await this.scanForUpdates();
         const availableUpdates = updates.filter((update) => update.updateAvailable);
-        const summary = availableUpdates.length > 0
-            ? `Found ${availableUpdates.length} package update(s) available:\n` +
+        const upToDatePackages = updates.filter((update) => !update.updateAvailable && update.latestVersion !== "lookup-failed");
+        const failedLookups = updates.filter((update) => update.latestVersion === "lookup-failed");
+        let summary;
+        if (availableUpdates.length > 0) {
+            summary = `Found ${availableUpdates.length} package update(s) available:\n` +
                 availableUpdates
                     .map((update) => `- ${update.packageName}: ${update.currentVersion} → ${update.latestVersion}`)
-                    .join("\n")
-            : "All packages are up to date.";
+                    .join("\n");
+        }
+        else {
+            // Enhanced logging for no updates scenario (Requirement 1.4)
+            summary = upToDatePackages.length > 0
+                ? `All ${upToDatePackages.length} packages are up to date:\n` +
+                    upToDatePackages
+                        .map((update) => `- ${update.packageName}: ${update.currentVersion} (latest)`)
+                        .join("\n")
+                : "No packages found to check for updates.";
+        }
+        // Add information about failed lookups (Requirement 5.1)
+        if (failedLookups.length > 0) {
+            summary += `\n\nNote: ${failedLookups.length} package(s) could not be found in registry and were skipped:\n` +
+                failedLookups
+                    .map((update) => `- ${update.packageName} (lookup failed)`)
+                    .join("\n");
+        }
         return {
             totalUpdates: availableUpdates.length,
             updates: availableUpdates,
@@ -37623,13 +37672,16 @@ class VersionQueryService {
                 updateAvailable,
             };
         }
-        catch {
-            // If we can't get version info, assume no update is available
+        catch (error) {
+            // Requirement 5.1: Skip missing packages and continue processing others
+            console.warn(`⚠️  Package lookup failed for '${parsedPackage.name}': ${error instanceof Error ? error.message : String(error)}`);
+            console.info(`🔄 Skipping package '${parsedPackage.name}' and continuing with other packages`);
+            // Return a candidate indicating the package couldn't be checked
             return {
                 packageName: parsedPackage.name,
                 currentVersion: parsedPackage.version || "unknown",
-                latestVersion: "unknown",
-                updateAvailable: false,
+                latestVersion: "lookup-failed",
+                updateAvailable: false, // Don't attempt to update packages we can't query
             };
         }
     }
@@ -37639,12 +37691,31 @@ class VersionQueryService {
      * @returns Array of UpdateCandidate objects
      */
     async checkMultiplePackagesForUpdates(packages) {
-        const updatePromises = packages.map((pkg) => this.checkForUpdates(pkg));
+        console.info(`🔍 Checking ${packages.length} packages for updates...`);
+        const updatePromises = packages.map(async (pkg, index) => {
+            console.debug(`Checking package ${index + 1}/${packages.length}: ${pkg.name}`);
+            return this.checkForUpdates(pkg);
+        });
         // Use Promise.allSettled to handle individual package failures gracefully
         const results = await Promise.allSettled(updatePromises);
-        return results
+        const successfulResults = results
             .filter((result) => result.status === "fulfilled")
             .map((result) => result.value);
+        const failedResults = results.filter(result => result.status === "rejected");
+        // Log statistics about package lookup results
+        const lookupFailures = successfulResults.filter(result => result.latestVersion === "lookup-failed");
+        if (failedResults.length > 0) {
+            console.warn(`⚠️  ${failedResults.length} packages failed completely during lookup`);
+        }
+        if (lookupFailures.length > 0) {
+            console.warn(`⚠️  ${lookupFailures.length} packages could not be found in registry:`);
+            lookupFailures.forEach(pkg => {
+                console.warn(`   - ${pkg.packageName} (skipped)`);
+            });
+        }
+        const successfulLookups = successfulResults.filter(result => result.latestVersion !== "lookup-failed");
+        console.info(`✅ Successfully checked ${successfulLookups.length}/${packages.length} packages`);
+        return successfulResults;
     }
     /**
      * Make an API request with retry logic and error handling

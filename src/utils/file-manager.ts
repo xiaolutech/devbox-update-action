@@ -277,10 +277,37 @@ export class FileManager {
 	async applyUpdates(updates: UpdateCandidate[]): Promise<DevboxConfig> {
 		// Filter to only include updates that are actually available
 		const validUpdates = updates.filter((update) => update.updateAvailable);
+		const failedLookups = updates.filter(
+			(update) => update.latestVersion === "lookup-failed",
+		);
+		const skippedUpdates = updates.filter(
+			(update) =>
+				!update.updateAvailable && update.latestVersion !== "lookup-failed",
+		);
+
+		// Log information about skipped packages (Requirement 5.1)
+		if (failedLookups.length > 0) {
+			console.info(
+				`🚫 Skipping ${failedLookups.length} package(s) due to lookup failures:`,
+			);
+			failedLookups.forEach((update) => {
+				console.info(
+					`   - ${update.packageName} (could not be found in registry)`,
+				);
+			});
+		}
+
+		if (skippedUpdates.length > 0) {
+			console.debug(
+				`ℹ️  Skipping ${skippedUpdates.length} package(s) that are already up to date`,
+			);
+		}
 
 		if (validUpdates.length === 0) {
 			throw new DevboxError("No valid updates to apply", "NO_UPDATES");
 		}
+
+		console.info(`📝 Proceeding with ${validUpdates.length} valid update(s)`);
 
 		// Check if we have any non-latest updates (that would change devbox.json)
 		const configUpdates = validUpdates.filter(

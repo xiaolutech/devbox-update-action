@@ -175,7 +175,7 @@ describe("VersionQueryService", () => {
 			expect(result).toEqual({
 				packageName: "nodejs",
 				currentVersion: "18.0.0",
-				latestVersion: "unknown",
+				latestVersion: "lookup-failed",
 				updateAvailable: false,
 			});
 		});
