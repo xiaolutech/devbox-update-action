@@ -9,6 +9,21 @@ import { run } from "../src/index";
 jest.mock("@actions/core");
 const mockCore = core as jest.Mocked<typeof core>;
 
+// Mock the version-query module so package scanning is deterministic
+// and never hits the real Devbox Search API (which makes tests depend
+// on whether the packages in devbox.json happen to be up to date).
+jest.mock("../src/utils/version-query", () => ({
+	createVersionQueryService: () => ({
+		checkMultiplePackagesForUpdates: jest.fn().mockResolvedValue([]),
+		checkForUpdates: jest.fn().mockResolvedValue({
+			packageName: "test-package",
+			currentVersion: "1.0.0",
+			latestVersion: "1.0.0",
+			updateAvailable: false,
+		}),
+	}),
+}));
+
 describe("Main Action", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
