@@ -41,7 +41,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      metadata: read
 
     steps:
       - uses: actions/checkout@v4
