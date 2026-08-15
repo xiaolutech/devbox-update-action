@@ -9,9 +9,19 @@ on:
 jobs:
   check-dist:
     runs-on: ubuntu-latest
+    permissions:
+      # needed to push the rebuilt dist/ back onto dependency-update PR branches
+      contents: write
+      # needed to re-run this job so the rebuilt dist/ gets a passing check
+      actions: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Check out the PR head branch by name (not by sha) so that when this
+          # job re-runs itself after pushing a rebuilt dist/, it picks up the
+          # fixed commit instead of looping on the stale sha.
+          ref: ${{ github.event.pull_request.head.ref || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -26,17 +36,47 @@ jobs:
         run: npm run build
 
       - name: Compare the expected and actual dist/ directories
+        id: diff
         run: |
           if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
             echo "Detected uncommitted changes after build. See status below:"
             git diff
-            exit 1
+            echo "dist_dirty=true" >> "$GITHUB_OUTPUT"
           fi
-        id: diff
+
+      # Renovate (Mend-hosted app) cannot run post-upgrade commands like
+      # 'npm run build', so dependency-update PRs arrive with a stale dist/.
+      # Rebuild and commit it here. Only runs for PRs from branches in this
+      # repository (never from forks).
+      - name: Commit rebuilt dist/ on dependency-update PR branches
+        if: >-
+          steps.diff.outputs.dist_dirty == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          git commit -m "chore: rebuild dist"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          echo "dist_rebuilt=true" >> "$GITHUB_OUTPUT"
+          sleep 5
+
+      # The push above does not trigger new workflow runs (it uses GITHUB_TOKEN),
+      # so re-run this job: it now checks out the updated head branch and passes.
+      - name: Re-run check after dist rebuild
+        if: >-
+          steps.diff.outputs.dist_dirty == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/rerun"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # If index.js was different than expected, upload the expected version as an artifact
       - uses: actions/upload-artifact@v4
-        if: ${{ failure() && steps.diff.conclusion == 'failure' }}
+        if: ${{ failure() }}
         with:
           name: dist
           path: dist/

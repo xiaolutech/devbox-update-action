@@ -3,13 +3,7 @@
   "extends": [
     "github>zhaochunqi/renovate-config"
   ],
-  "postUpgradeTasks": {
-    "commands": [
-      "npm run build"
-    ],
-    "fileFilters": [
-      "dist/**"
-    ],
-    "executionMode": "update"
-  }
+  "ignoredAuthors": [
+    "41898282+github-actions[bot]@users.noreply.github.com"
+  ]
 }
