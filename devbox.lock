@@ -1,41 +1,41 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "biome@2.5.8": {
-      "last_modified": "2026-08-13T03:55:42Z",
-      "resolved": "github:NixOS/nixpkgs/6b5e5b7a6631f065bf6908986990b37d845f847f#biome",
+    "biome@2.5.15": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8#biome",
       "source": "devbox-search",
-      "version": "2.5.8",
+      "version": "2.5.15",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/bhpl1a5ybm1ivycwsh3zaq1z2ddvs41m-biome-2.5.8",
+              "path": "/nix/store/hrv4gzzjdw1achf8sq6qvxdcg43ijl5c-biome-2.5.15",
               "default": true
             }
           ],
-          "store_path": "/nix/store/bhpl1a5ybm1ivycwsh3zaq1z2ddvs41m-biome-2.5.8"
+          "store_path": "/nix/store/hrv4gzzjdw1achf8sq6qvxdcg43ijl5c-biome-2.5.15"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/rayi0fmn6k2rmc80sjpxx14zgrfnvhfc-biome-2.5.8",
+              "path": "/nix/store/72xvni12jg5vlvz7gif70lkavvc4pslr-biome-2.5.15",
               "default": true
             }
           ],
-          "store_path": "/nix/store/rayi0fmn6k2rmc80sjpxx14zgrfnvhfc-biome-2.5.8"
+          "store_path": "/nix/store/72xvni12jg5vlvz7gif70lkavvc4pslr-biome-2.5.15"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/jg7jgvsm3hjklmfzpzs078mhiacx1q3c-biome-2.5.8",
+              "path": "/nix/store/l1arzv7isw67qnqj06i9rv37avpfiksb-biome-2.5.15",
               "default": true
             }
           ],
-          "store_path": "/nix/store/jg7jgvsm3hjklmfzpzs078mhiacx1q3c-biome-2.5.8"
+          "store_path": "/nix/store/l1arzv7isw67qnqj06i9rv37avpfiksb-biome-2.5.15"
         }
       }
     },
